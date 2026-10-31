@@ -4,5 +4,12 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-10-31",
   "assets": { "directory": "./public", "binding": "ASSETS" },
-  "vars": { "AI_BASE_URL": "https://api.openai.com/v1" }
+  "vars": { "AI_BASE_URL": "https://api.openai.com/v1" },
+  "d1_databases": [
+    {
+      "binding": "USERS_DB",
+      "database_name": "appforgeai-users",
+      "database_id": "482dc216-f744-44c6-84a3-9df1a8ab78fa"
+    }
+  ]
 }
