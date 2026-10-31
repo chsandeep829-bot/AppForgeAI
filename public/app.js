@@ -1,14 +1,101 @@
-const $=s=>document.querySelector(s);let project={files:[]};let user=null;
+const $=s=>document.querySelector(s);
+let project={files:[]}, user=null;
+
 function keysFrom(text){return [...new Set((text||"").split(/[\n,]+/).map(x=>x.trim()).filter(Boolean).map(x=>x.includes("=")?x.slice(x.indexOf("=")+1).trim():x).filter(Boolean))]}
 function apiKeys(){return {groq:keysFrom(sessionStorage.getItem("af_groq")||""),gemini:keysFrom(sessionStorage.getItem("af_gemini")||"")}}
-function message(t,who="ai"){const d=document.createElement("div");d.className="msg "+who;d.textContent=t;$("#chatLog").append(d);$("#chatLog").scrollTop=99999}
-async function init(){try{const d=await (await fetch("/auth/me")).json();user=d.user}catch{}if(user){$("#loginScreen").classList.add("hidden");$("#appShell").classList.remove("hidden");$("#userBox").innerHTML=(user.picture?'<img src="'+user.picture+'" alt="">':"")+"<span>"+(user.name||user.email)+"</span><a href='/auth/logout'>Sign out</a>";$("#groqKeys").value=sessionStorage.getItem("af_groq")||"";$("#geminiKeys").value=sessionStorage.getItem("af_gemini")||""}}
-document.querySelectorAll(".nav").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav,.tab").forEach(x=>x.classList.remove("active"));b.classList.add("active");$("#"+b.dataset.tab).classList.add("active")});
-function render(x){project=x;$("#files").innerHTML="";(x.files||[]).forEach((f,i)=>{const b=document.createElement("button");b.className="file";b.textContent=f.path;b.onclick=()=>{$("#fileTitle").textContent=f.path;$("#output").textContent=f.content};$("#files").append(b);if(i===0)b.click()});const html=(project.files||[]).find(f=>f.path.endsWith("index.html"))?.content||"<h2>Preview unavailable</h2>";const css=(project.files||[]).find(f=>f.path.endsWith(".css"))?.content||"";const script=(project.files||[]).find(f=>f.path.endsWith(".js"))?.content||"";$("#previewFrame").srcdoc=html.replace("</head>","<style>"+css.replace(/<\/style/gi,"")+"</style></head>").replace("</body>","<script>"+script.replace(/<\/script/gi,"")+"</script></body>")}
-async function build(prompt,edit=false){const provider=$("#provider").value;const own=apiKeys()[provider];if(!own.length){$("#apiMessage").textContent="Add at least one "+(provider==="groq"?"Groq":"Gemini")+" key.";document.querySelector('[data-tab="settingsTab"]').click();return}$("#generate").disabled=true;$("#status").textContent=edit?"Editing app…":"Building app…";message(edit?"Editing your project…":"Build started…");try{const full=edit?prompt+"\n\nCurrent files:\n"+JSON.stringify(project.files):prompt;const r=await fetch("/api/generate",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({prompt:full,provider,apiKeys:{[provider]:own}})});const d=await r.json();if(!r.ok)throw new Error(d.error);render(d.result);$("#status").textContent="Build complete";message("Build complete. Open Preview or ask for another edit.")}catch(e){$("#status").textContent="Build failed";message("Error: "+e.message)}finally{$("#generate").disabled=false}}
-$("#generate").onclick=()=>build($("#prompt").value);$("#sendChat").onclick=()=>{const v=$("#chatInput").value.trim();if(!v)return;message(v,"user");$("#chatInput").value="";build(v,true)};
+
+function message(text,who="ai"){
+  const log=$("#chatLog"); if(!log)return;
+  const d=document.createElement("div"); d.className="msg "+who; d.textContent=text; log.append(d); log.scrollTop=log.scrollHeight;
+}
+
+async function init(){
+  try{
+    const r=await fetch("/auth/me",{credentials:"same-origin"});
+    const d=await r.json(); user=d.user||null;
+  }catch(e){console.error("Session check failed",e)}
+  if(user){
+    $("#loginScreen").classList.add("hidden");
+    $("#appShell").classList.remove("hidden");
+    const box=$("#userBox");
+    box.textContent="";
+    if(user.picture){const img=document.createElement("img");img.src=user.picture;img.alt="";box.append(img)}
+    const name=document.createElement("span");name.textContent=user.name||user.email;box.append(name);
+    const out=document.createElement("a");out.href="/auth/logout";out.textContent="Sign out";box.append(out);
+    $("#groqKeys").value=sessionStorage.getItem("af_groq")||"";
+    $("#geminiKeys").value=sessionStorage.getItem("af_gemini")||"";
+  }else{
+    $("#loginScreen").classList.remove("hidden");
+    $("#appShell").classList.add("hidden");
+  }
+}
+
+document.querySelectorAll(".nav").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll(".nav,.tab").forEach(x=>x.classList.remove("active"));
+  b.classList.add("active");
+  $("#"+b.dataset.tab).classList.add("active");
+}));
+
+function render(x){
+  project=x||{files:[]}; $("#files").innerHTML="";
+  (project.files||[]).forEach((f,i)=>{
+    const b=document.createElement("button");b.className="file";b.textContent=f.path;
+    b.onclick=()=>{$("#fileTitle").textContent=f.path;$("#output").textContent=f.content};
+    $("#files").append(b);if(i===0)b.click();
+  });
+  const html=(project.files||[]).find(f=>f.path.endsWith("index.html"))?.content||"<h2>Preview unavailable</h2>";
+  const css=(project.files||[]).find(f=>f.path.endsWith(".css"))?.content||"";
+  const script=(project.files||[]).find(f=>f.path.endsWith(".js"))?.content||"";
+  $("#previewFrame").srcdoc=html.replace("</head>","<style>"+css.replace(/<\/style/gi,"")+"</style></head>").replace("</body>","<script>"+script.replace(/<\/script/gi,"")+"</script></body>");
+}
+
+async function build(prompt,edit=false){
+  const provider=$("#provider").value, own=apiKeys()[provider];
+  if(!prompt?.trim()){ $("#status").textContent="Describe the app you want to build."; return; }
+  if(!own.length){$("#apiMessage").textContent="Add at least one "+(provider==="groq"?"Groq":"Gemini")+" key.";document.querySelector('[data-tab="settingsTab"]').click();return}
+  $("#generate").disabled=true;$("#status").textContent=edit?"Editing app…":"Building app…";message(edit?"Editing your project…":"Build started…");
+  try{
+    const full=edit?prompt+"\n\nCurrent files:\n"+JSON.stringify(project.files):prompt;
+    const r=await fetch("/api/generate",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({prompt:full,provider,apiKeys:{[provider]:own}})});
+    const d=await r.json();if(!r.ok)throw new Error(d.error||"Build failed");render(d.result);$("#status").textContent="Build complete";message("Build complete. Open Preview or ask for another edit.");
+  }catch(e){$("#status").textContent="Build failed";message("Error: "+e.message)}finally{$("#generate").disabled=false}
+}
+
+$("#generate").onclick=()=>build($("#prompt").value);
+$("#sendChat").onclick=()=>{const v=$("#chatInput").value.trim();if(!v)return;message(v,"user");$("#chatInput").value="";build(v,true)};
+
 $("#saveKeys").onclick=()=>{sessionStorage.setItem("af_groq",$("#groqKeys").value);sessionStorage.setItem("af_gemini",$("#geminiKeys").value);$("#apiMessage").textContent="Saved for this browser session."};
-async function testProvider(provider){const keys=keysFrom($(provider==="groq"?"#groqKeys":"#geminiKeys").value);$("#apiMessage").textContent="Testing "+provider+"…";try{const r=await fetch("/api/test-provider",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({provider,keys})});const d=await r.json();if(!r.ok)throw new Error(d.error);$("#apiMessage").textContent=provider+" connected successfully with "+d.keyCount+" key(s)."}catch(e){$("#apiMessage").textContent="Test failed: "+e.message}}
-$("#testGroq").onclick=()=>testProvider("groq");$("#testGemini").onclick=()=>testProvider("gemini");
-$("#verifyCF").onclick=async()=>{const token=$("#cfToken").value;$("#cfResult").textContent="Checking…";try{const r=await fetch("/api/cloudflare/verify",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({token})});const d=await r.json();if(!r.ok)throw new Error(d.error);$("#cfResult").textContent="Cloudflare token verified: "+(d.status||"active")}catch(e){$("#cfResult").textContent="Verification failed: "+e.message}};
-async function emailAuth(mode){const payload={name:$("#authName").value,email:$("#authEmail").value,password:$("#authPassword").value};$("#authMessage").textContent=mode==="register"?"Creating account…":"Signing in…";try{const r=await fetch("/auth/"+mode,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});const d=await r.json();if(!r.ok)throw new Error(d.error||"Authentication failed");location.href="/"}catch(e){$("#authMessage").textContent=e.message}}\n$("#loginBtn").onclick=()=>emailAuth("login");$("#registerBtn").onclick=()=>emailAuth("register");\nasync function emailAuth(mode){const payload={name:$("#authName").value,email:$("#authEmail").value,password:$("#authPassword").value};$("#authMessage").textContent=mode==="register"?"Creating account…":"Signing in…";try{const r=await fetch("/auth/"+mode,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});const d=await r.json();if(!r.ok)throw new Error(d.error||"Authentication failed");location.href="/"}catch(e){$("#authMessage").textContent=e.message}}\n$("#loginBtn").onclick=()=>emailAuth("login");$("#registerBtn").onclick=()=>emailAuth("register");\ninit();
+
+async function testProvider(provider){
+  const keys=keysFrom($(provider==="groq"?"#groqKeys":"#geminiKeys").value);
+  $("#apiMessage").textContent="Testing "+provider+"…";
+  try{
+    const r=await fetch("/api/test-provider",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({provider,keys})});
+    const d=await r.json();if(!r.ok)throw new Error(d.error);$("#apiMessage").textContent=provider+" connected successfully with "+d.keyCount+" key(s).";
+  }catch(e){$("#apiMessage").textContent="Test failed: "+e.message}
+}
+$("#testGroq").onclick=()=>testProvider("groq");
+$("#testGemini").onclick=()=>testProvider("gemini");
+
+$("#verifyCF").onclick=async()=>{
+  $("#cfResult").textContent="Checking…";
+  try{
+    const r=await fetch("/api/cloudflare/verify",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({token:$("#cfToken").value})});
+    const d=await r.json();if(!r.ok)throw new Error(d.error);$("#cfResult").textContent="Cloudflare token verified: "+(d.status||"active");
+  }catch(e){$("#cfResult").textContent="Verification failed: "+e.message}
+};
+
+async function emailAuth(mode){
+  const payload={name:$("#authName").value.trim(),email:$("#authEmail").value.trim(),password:$("#authPassword").value};
+  $("#authMessage").textContent=mode==="register"?"Creating account…":"Signing in…";
+  try{
+    const r=await fetch("/auth/"+mode,{method:"POST",credentials:"same-origin",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
+    const d=await r.json();if(!r.ok)throw new Error(d.error||"Authentication failed");
+    await init();
+    if(!user)throw new Error("Login succeeded but the session cookie was not saved. Check your Worker domain and HTTPS settings.");
+  }catch(e){$("#authMessage").textContent=e.message}
+}
+$("#loginBtn").onclick=()=>emailAuth("login");
+$("#registerBtn").onclick=()=>emailAuth("register");
+
+init();
