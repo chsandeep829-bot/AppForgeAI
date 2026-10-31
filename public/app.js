@@ -1,3 +1,11 @@
+async function loadDeployments(){
+ if(!currentProjectId)return;
+ const r=await fetch("/api/projects/"+encodeURIComponent(currentProjectId)+"/deployments");
+ const d=await r.json();const box=$("#deploymentList");if(!r.ok)throw new Error(d.error||"Could not load deployment status.");
+ box.textContent="";(d.deployments||[]).forEach(x=>{const row=document.createElement("div");row.className="note";row.textContent=x.provider+" — "+x.status+(x.custom_domain?" — "+x.custom_domain:"")+(x.last_error?" — "+x.last_error:"");box.append(row);});
+}
+async function showPublish(){if(!currentProjectId)throw new Error("Open a project first.");$("#publishPanel").classList.remove("hidden");await loadDeployments();}
+
 async function exportCurrentProject(){
  if(!currentProjectId)throw new Error("Open a project first.");
  const r=await fetch("/api/projects/"+encodeURIComponent(currentProjectId)+"/export");
@@ -26,6 +34,7 @@ const LAST_LOGIN_KEY="appforgeai_last_login"; let projects=[]; let currentProjec
 function keysFrom(text){return [...new Set((text||"").split(/[\n,]+/).map(x=>x.trim()).filter(Boolean).map(x=>x.includes("=")?x.slice(x.indexOf("=")+1).trim():x).filter(Boolean))]}
 function apiKeys(){return {groq:[],gemini:[]}}
 
+function addMessage(who,text){message(text,who);}
 function message(text,who="ai"){
   const log=$("#chatLog"); if(!log)return;
   const d=document.createElement("div"); d.className="msg "+who; d.textContent=text; log.append(d); log.scrollTop=log.scrollHeight;
@@ -113,7 +122,7 @@ $("#exportProject").onclick=()=>exportCurrentProject().catch(e=>message("Export 
 $("#saveFile").onclick=()=>saveActiveFile().catch(e=>{message("Save failed: "+e.message);$("#status").textContent="Save failed";});
 $("#copyCode").onclick=async()=>{try{await navigator.clipboard.writeText($("#output").textContent);$("#copyCode").textContent="✓";setTimeout(()=>$("#copyCode").textContent="▣",1200)}catch{}};
 $("#refreshPreview").onclick=()=>render(project);
-$("#sendChat").onclick=async()=>{const v=$("#chatInput").value.trim();if(!v)return;message(v,"user");$("#chatInput").value="";await build(v,true);await saveProjectFiles();persistCurrent()};
+$("#sendChat").onclick=async()=>{const v=$("#chatInput").value.trim();if(!v)return;message(v,"user");$("#chatInput").value="";try{await saveProjectMessage("user",v);await build(v,true);await saveProjectFiles();await persistCurrent();await saveProjectMessage("assistant","Project update request completed.");}catch(e){message("Chat update failed: "+e.message)}};
 document.querySelectorAll(".projectTab").forEach(b=>b.onclick=()=>{document.querySelectorAll(".projectTab,.projectPanel").forEach(x=>x.classList.remove("active"));b.classList.add("active");$("#"+b.dataset.projectTab).classList.add("active")});
 
 async function loadProviderStatus(){
@@ -164,9 +173,12 @@ if($("#verifyCF")) $("#verifyCF").onclick=async()=>{
 async function loadApks(){const box=$("#apkList");try{const r=await fetch("/api/apks");const d=await r.json();box.textContent="";if(!d.releases?.length){box.textContent="No APK releases available yet.";return}d.releases.forEach(x=>{const row=document.createElement("div");row.className="card";const a=document.createElement("a");a.href=x.download_url;a.textContent="Download "+x.title+(x.version?" v"+x.version:"");a.target="_blank";a.rel="noopener";row.append(a);if(x.notes){const p=document.createElement("p");p.textContent=x.notes;row.append(p)}box.append(row)})}catch{box.textContent="Could not load APK releases."}}
 async function loadAdminApks(){const box=$("#adminApkList");try{const r=await fetch("/api/admin/apks");const d=await r.json();box.textContent="";(d.releases||[]).forEach(x=>{const row=document.createElement("div");const t=document.createElement("span");t.textContent=x.title+" "+(x.version||"");const del=document.createElement("button");del.textContent="Remove";del.onclick=async()=>{await fetch("/api/admin/apks/"+x.id,{method:"DELETE"});loadAdminApks();loadApks()};row.append(t,del);box.append(row)})}catch{}}
 $("#addApk").onclick=async()=>{const payload={title:$("#apkTitle").value,version:$("#apkVersion").value,downloadUrl:$("#apkUrl").value,notes:$("#apkNotes").value};$("#adminMessage").textContent="Publishing…";try{const r=await fetch("/api/admin/apks",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});const d=await r.json();if(!r.ok)throw new Error(d.error||"Failed");$("#adminMessage").textContent="APK download published.";["#apkTitle","#apkVersion","#apkUrl","#apkNotes"].forEach(s=>$(s).value="");loadAdminApks();loadApks()}catch(e){$("#adminMessage").textContent=e.message}};
-$("#publishProject").onclick=()=>{document.querySelector('[data-tab="settingsTab"]').click();alert("Connect your Cloudflare details in Settings. Project publishing will use the selected project.");};
-$("#domainProject").onclick=()=>{document.querySelector('[data-tab="settingsTab"]').click();alert("Custom domain settings are available in the Publish connection area.");};
-$("#githubProject").onclick=()=>alert("GitHub project publishing connection is the next deployment step for this workspace.");
+$("#publishProject").onclick=()=>showPublish().catch(e=>message("Publish unavailable: "+e.message));
+$("#domainProject").onclick=()=>showPublish().catch(e=>message("Domain unavailable: "+e.message));
+$("#githubProject").onclick=()=>exportCurrentProject().catch(e=>message("GitHub export preparation failed: "+e.message));
+$("#closePublish").onclick=()=>$("#publishPanel").classList.add("hidden");
+$("#startDeployment").onclick=async()=>{const msg=$("#deploymentMessage");msg.textContent="Saving publish request…";try{const d=await requestDeployment($("#deployProvider").value,$("#customDomainInput").value.trim());msg.textContent=d.message||"Publish request saved.";await loadDeployments();}catch(e){msg.textContent="Publish request failed: "+e.message;}};
+document.querySelectorAll(".previewMode").forEach(b=>b.onclick=()=>{const frame=$("#previewFrame");frame.className="preview-"+b.dataset.previewMode;});
 
 
 // Start after Firebase restores any previous signed-in account.
