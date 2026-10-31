@@ -64,7 +64,7 @@ async function build(prompt,edit=false){
 $("#generate").onclick=()=>build($("#prompt").value);
 $("#sendChat").onclick=()=>{const v=$("#chatInput").value.trim();if(!v)return;message(v,"user");$("#chatInput").value="";build(v,true)};
 
-$("#saveKeys").onclick=()=>{sessionStorage.setItem("af_groq",$("#groqKeys").value);sessionStorage.setItem("af_gemini",$("#geminiKeys").value);$("#apiMessage").textContent="Saved for this browser session."};
+$("#saveKeys").onclick=async()=>{const provider=$("#provider").value;const text=$(provider==="groq"?"#groqKeys":"#geminiKeys").value;const keys=keysFrom(text);if(!keys.length){$("#apiMessage").textContent="Add at least one key for the selected provider.";return}$("#apiMessage").textContent="Saving securely…";try{const r=await fetch("/api/keys/save",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({provider,keys})});const d=await r.json();if(!r.ok)throw new Error(d.error||"Save failed");sessionStorage.setItem("af_"+provider,text);$("#apiMessage").textContent=provider+" keys saved securely to your account ("+d.keyCount+" key(s))."}catch(e){$("#apiMessage").textContent="Save failed: "+e.message}};
 
 async function testProvider(provider){
   const keys=keysFrom($(provider==="groq"?"#groqKeys":"#geminiKeys").value);
