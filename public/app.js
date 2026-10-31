@@ -140,3 +140,21 @@ init();
  drawer.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{if(window.innerWidth<=800)close()}));
  window.addEventListener("resize",()=>{if(window.innerWidth>800)close()});
 })();
+// Keep the navigation completely off-canvas on small screens.
+function setMobileMenu(open){
+ const sidebar=document.querySelector("#sidebar");
+ const backdrop=document.querySelector("#sidebarBackdrop");
+ const toggle=document.querySelector("#menuToggle");
+ if(!sidebar)return;
+ sidebar.classList.toggle("open",open);
+ backdrop?.classList.toggle("open",open);
+ toggle?.setAttribute("aria-expanded",String(open));
+}
+document.addEventListener("DOMContentLoaded",()=>{
+ const toggle=document.querySelector("#menuToggle");
+ const backdrop=document.querySelector("#sidebarBackdrop");
+ toggle?.addEventListener("click",()=>setMobileMenu(!document.querySelector("#sidebar")?.classList.contains("open")));
+ backdrop?.addEventListener("click",()=>setMobileMenu(false));
+ document.querySelectorAll("#sidebar a,#sidebar button").forEach(el=>el.addEventListener("click",()=>{if(window.innerWidth<=800)setMobileMenu(false)}));
+ window.addEventListener("resize",()=>{if(window.innerWidth>800)setMobileMenu(false)});
+});
