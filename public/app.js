@@ -58,7 +58,14 @@ async function init(authenticatedUser=null){
       const firebaseUser = authenticatedUser || await window.AppForgeFirebaseReady;
       if (firebaseUser) await window.AppForgeFirebase.restoreRedirect().catch(()=>{});
       const me = await fetch("/auth/me",{credentials:"same-origin"}).then(r=>r.json()).catch(()=>({}));
-      user = me.user || (firebaseUser ? {name:firebaseUser.displayName||"AppForgeAI User",email:firebaseUser.email||"",photoUrl:firebaseUser.photoURL||""} : {name:"AppForgeAI User",email:""}); if(firebaseUser?.photoURL&&!user.photoUrl)user.photoUrl=firebaseUser.photoURL;
+      const firebaseIdentity=firebaseUser?{name:firebaseUser.displayName||"AppForgeAI User",email:firebaseUser.email||"",photoUrl:firebaseUser.photoURL||""}:null;
+      // Firebase is the authority immediately after sign-in. Never display a stale Worker cookie for a different account.
+      if(firebaseIdentity?.email){
+        if(me.user?.email && me.user.email.toLowerCase()!==firebaseIdentity.email.toLowerCase()){
+          console.warn("Ignoring stale AppForgeAI session for",me.user.email,"because Firebase signed in as",firebaseIdentity.email);
+        }
+        user={...(me.user&&me.user.email?.toLowerCase()===firebaseIdentity.email.toLowerCase()?me.user:{}),...firebaseIdentity};
+      }else user=me.user||{name:"AppForgeAI User",email:""};
     } else user={name:"AppForgeAI User",email:""};
   } catch { user={name:"AppForgeAI User",email:""}; }
   if(!user?.email){document.querySelector("#appShell")?.classList.add("hidden");return;}
