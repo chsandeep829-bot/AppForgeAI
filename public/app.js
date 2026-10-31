@@ -24,6 +24,8 @@ async function init(){
     const out=document.createElement("a");out.href="/auth/logout";out.textContent="Sign out";box.append(out);
     $("#groqKeys").value=sessionStorage.getItem("af_groq")||"";
     $("#geminiKeys").value=sessionStorage.getItem("af_gemini")||"";
+    if(d.admin){$("#adminPanel").classList.remove("hidden");loadAdminApks()}
+    loadApks();
   }else{
     $("#loginScreen").classList.remove("hidden");
     $("#appShell").classList.add("hidden");
@@ -85,6 +87,9 @@ $("#verifyCF").onclick=async()=>{
   }catch(e){$("#cfResult").textContent="Verification failed: "+e.message}
 };
 
+async function loadApks(){const box=$("#apkList");try{const r=await fetch("/api/apks");const d=await r.json();box.textContent="";if(!d.releases?.length){box.textContent="No APK releases available yet.";return}d.releases.forEach(x=>{const row=document.createElement("div");row.className="card";const a=document.createElement("a");a.href=x.download_url;a.textContent="Download "+x.title+(x.version?" v"+x.version:"");a.target="_blank";a.rel="noopener";row.append(a);if(x.notes){const p=document.createElement("p");p.textContent=x.notes;row.append(p)}box.append(row)})}catch{box.textContent="Could not load APK releases."}}
+async function loadAdminApks(){const box=$("#adminApkList");try{const r=await fetch("/api/admin/apks");const d=await r.json();box.textContent="";(d.releases||[]).forEach(x=>{const row=document.createElement("div");const t=document.createElement("span");t.textContent=x.title+" "+(x.version||"");const del=document.createElement("button");del.textContent="Remove";del.onclick=async()=>{await fetch("/api/admin/apks/"+x.id,{method:"DELETE"});loadAdminApks();loadApks()};row.append(t,del);box.append(row)})}catch{}}
+$("#addApk").onclick=async()=>{const payload={title:$("#apkTitle").value,version:$("#apkVersion").value,downloadUrl:$("#apkUrl").value,notes:$("#apkNotes").value};$("#adminMessage").textContent="Publishing…";try{const r=await fetch("/api/admin/apks",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});const d=await r.json();if(!r.ok)throw new Error(d.error||"Failed");$("#adminMessage").textContent="APK download published.";["#apkTitle","#apkVersion","#apkUrl","#apkNotes"].forEach(s=>$(s).value="");loadAdminApks();loadApks()}catch(e){$("#adminMessage").textContent=e.message}};
 async function emailAuth(mode){
   const payload={name:$("#authName").value.trim(),email:$("#authEmail").value.trim(),password:$("#authPassword").value};
   $("#authMessage").textContent=mode==="register"?"Creating account…":"Signing in…";
