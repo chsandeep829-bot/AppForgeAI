@@ -50,7 +50,9 @@ function message(text,who="ai"){
 }
 
 async function init(){
-  // Restore a real Firebase account silently when the user has already signed in.
+  // Never bypass the login screen merely because Firebase has a remembered account.
+  if(!window.__APPFORGE_AUTH_INTENT && !document.querySelector("#authScreen")?.classList.contains("hidden")) return;
+  // Restore a real Firebase account silently only after an explicit authentication action.
   try {
     if (window.AppForgeFirebaseReady) {
       const firebaseUser = await window.AppForgeFirebaseReady;
@@ -66,6 +68,10 @@ async function init(){
   const box=$("#userBox"), avatar=$("#userAvatar"), emailEl=$("#userEmail");
   if(emailEl) emailEl.textContent=user.email||"Workspace";
   if(avatar){const photo=user.photoUrl||"";avatar.src=photo||"/file_00000000bfc0821182fbc9c3e41a408b.png";avatar.alt=user.email?user.email+" profile picture":"AppForgeAI account";}
+  const accountAvatar=$("#accountAvatar"),accountName=$("#accountName"),accountEmail=$("#accountEmail");
+  if(accountAvatar){accountAvatar.src=(user.photoUrl||avatar?.src||"/file_00000000bfc0821182fbc9c3e41a408b.png");accountAvatar.alt=user.email||"Account";}
+  if(accountName)accountName.textContent=user.name||user.email||"AppForgeAI User";
+  if(accountEmail)accountEmail.textContent=user.email||"";
   if(box) box.title=user.email||"AppForgeAI account";
   const isAdmin=(user?.email||"").toLowerCase()==="chsandeep829@gmail.com";
   const admin=$("#adminPanel"), adminNav=$("#adminNav");
@@ -243,3 +249,10 @@ document.querySelectorAll("#sidebar button").forEach(b=>b.addEventListener("clic
 
 // React immediately when Firebase changes authentication state.
 window.addEventListener("appforge-authenticated",()=>{init().catch(()=>{});});
+
+// Account menu and secure logout.
+const accountButton=document.querySelector("#userBox");
+const accountPopover=document.querySelector("#accountPopover");
+accountButton?.addEventListener("click",e=>{e.stopPropagation();const open=accountPopover?.classList.toggle("hidden")===false;accountButton.setAttribute("aria-expanded",String(open));});
+document.addEventListener("click",e=>{if(!e.target.closest(".accountMenu")){accountPopover?.classList.add("hidden");accountButton?.setAttribute("aria-expanded","false");}});
+document.querySelector("#accountLogout")?.addEventListener("click",async()=>{try{await window.AppForgeFirebase?.logout();await fetch("/auth/logout",{method:"POST",credentials:"same-origin"}).catch(()=>{});location.reload();}catch(error){alert(error?.message||"Could not log out.");}});
