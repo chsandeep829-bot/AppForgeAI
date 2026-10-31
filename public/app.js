@@ -102,11 +102,73 @@ $("#verifyCF").onclick=async()=>{
 async function loadApks(){const box=$("#apkList");try{const r=await fetch("/api/apks");const d=await r.json();box.textContent="";if(!d.releases?.length){box.textContent="No APK releases available yet.";return}d.releases.forEach(x=>{const row=document.createElement("div");row.className="card";const a=document.createElement("a");a.href=x.download_url;a.textContent="Download "+x.title+(x.version?" v"+x.version:"");a.target="_blank";a.rel="noopener";row.append(a);if(x.notes){const p=document.createElement("p");p.textContent=x.notes;row.append(p)}box.append(row)})}catch{box.textContent="Could not load APK releases."}}
 async function loadAdminApks(){const box=$("#adminApkList");try{const r=await fetch("/api/admin/apks");const d=await r.json();box.textContent="";(d.releases||[]).forEach(x=>{const row=document.createElement("div");const t=document.createElement("span");t.textContent=x.title+" "+(x.version||"");const del=document.createElement("button");del.textContent="Remove";del.onclick=async()=>{await fetch("/api/admin/apks/"+x.id,{method:"DELETE"});loadAdminApks();loadApks()};row.append(t,del);box.append(row)})}catch{}}
 $("#addApk").onclick=async()=>{const payload={title:$("#apkTitle").value,version:$("#apkVersion").value,downloadUrl:$("#apkUrl").value,notes:$("#apkNotes").value};$("#adminMessage").textContent="Publishing…";try{const r=await fetch("/api/admin/apks",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});const d=await r.json();if(!r.ok)throw new Error(d.error||"Failed");$("#adminMessage").textContent="APK download published.";["#apkTitle","#apkVersion","#apkUrl","#apkNotes"].forEach(s=>$(s).value="");loadAdminApks();loadApks()}catch(e){$("#adminMessage").textContent=e.message}};
-let authMode="login",turnstileWidget=null;
-function setAuthMode(mode){authMode=mode;const register=mode==="register";$("#registerFields").classList.toggle("hidden",!register);$("#loginBtn").classList.toggle("hidden",register);$("#registerBtn").classList.toggle("hidden",!register);$("#switchAuth").textContent=register?"Already have an account? Sign in":"New here? Create an account";$("#authMessage").textContent=""}
-async function setupTurnstile(){try{const r=await fetch("/auth/turnstile-config");const d=await r.json();if(!d.siteKey)return;const script=document.createElement("script");script.src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";script.async=true;script.onload=()=>{turnstileWidget=window.turnstile.render("#turnstileBox",{sitekey:d.siteKey,theme:"dark"})};document.head.append(script)}catch{}}
-async function emailAuth(mode){const payload={username:$("#authUsername")?.value.trim(),firstName:$("#authFirstName")?.value.trim(),lastName:$("#authLastName")?.value.trim(),email:$("#authEmail").value.trim(),password:$("#authPassword").value,turnstileToken:window.turnstile&&turnstileWidget!==null?window.turnstile.getResponse(turnstileWidget):""};$("#authMessage").textContent=mode==="register"?"Creating your account…":"Signing in…";try{const r=await fetch("/auth/"+mode,{method:"POST",credentials:"same-origin",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});const d=await r.json();if(!r.ok)throw new Error(d.error||"Authentication failed");$("#authMessage").textContent=mode==="register"?"Account created. Opening your dashboard…":"Signed in. Opening your dashboard…";await init();}catch(e){$("#authMessage").textContent=e.message}finally{if(window.turnstile&&turnstileWidget!==null)window.turnstile.reset(turnstileWidget)}}
-$("#loginBtn").onclick=()=>emailAuth("login");$("#registerBtn").onclick=()=>emailAuth("register");$("#switchAuth").onclick=()=>setAuthMode(authMode==="login"?"register":"login");setAuthMode("login");setupTurnstile();
+let authMode="login",turnstileWidget=null,turnstileReady=false;
+function setAuthMode(mode){
+  authMode=mode;
+  const register=mode==="register";
+  $("#registerFields").classList.toggle("hidden",!register);
+  $("#loginBtn").classList.toggle("hidden",register);
+  $("#registerBtn").classList.toggle("hidden",!register);
+  $("#switchAuth").innerHTML=register?"Already have an account? <strong>Sign in</strong>":"New here? <strong>Create an account</strong>";
+  $("#authMessage").textContent="";
+}
+async function setupTurnstile(){
+  try{
+    const r=await fetch("/auth/turnstile-config",{credentials:"same-origin"});
+    const d=await r.json();
+    if(!d.siteKey){$("#turnstileBox").style.display="none";return;}
+    if(document.querySelector('script[data-appforge-turnstile]'))return;
+    const script=document.createElement("script");
+    script.dataset.appforgeTurnstile="true";
+    script.src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+    script.async=true;
+    script.onload=()=>{
+      try{
+        turnstileWidget=window.turnstile.render("#turnstileBox",{sitekey:d.siteKey,theme:"dark"});
+        turnstileReady=true;
+      }catch(e){$("#authMessage").textContent="Security verification could not start. Please refresh and try again.";}
+    };
+    script.onerror=()=>{$("#authMessage").textContent="Could not load security verification. Check your connection and refresh."};
+    document.head.append(script);
+  }catch{}
+}
+function authPayload(){
+  return {
+    username:$("#authUsername")?.value.trim()||"",
+    firstName:$("#authFirstName")?.value.trim()||"",
+    lastName:$("#authLastName")?.value.trim()||"",
+    email:$("#authEmail").value.trim(),
+    password:$("#authPassword").value,
+    turnstileToken:turnstileReady&&window.turnstile&&turnstileWidget!==null?window.turnstile.getResponse(turnstileWidget):""
+  };
+}
+async function emailAuth(mode){
+  const payload=authPayload();
+  if(!payload.email||!payload.password){$("#authMessage").textContent="Enter your email and password.";return;}
+  if(mode==="register"&&(!payload.username||!payload.firstName||!payload.lastName)){$("#authMessage").textContent="Complete your username, first name and last name.";return;}
+  const buttons=[$("#loginBtn"),$("#registerBtn")];
+  buttons.forEach(b=>b.disabled=true);
+  $("#authMessage").textContent=mode==="register"?"Creating your account…":"Signing in…";
+  try{
+    const r=await fetch("/auth/"+mode,{method:"POST",credentials:"same-origin",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(d.error||"Authentication failed");
+    $("#authMessage").textContent=mode==="register"?"Account created. Opening your dashboard…":"Signed in. Opening your dashboard…";
+    await init();
+  }catch(e){
+    $("#authMessage").textContent=e instanceof Error?e.message:"Authentication failed. Please try again.";
+  }finally{
+    buttons.forEach(b=>b.disabled=false);
+    if(turnstileReady&&window.turnstile&&turnstileWidget!==null){
+      try{window.turnstile.reset(turnstileWidget)}catch{}
+    }
+  }
+}
+$("#loginBtn").onclick=()=>emailAuth("login");
+$("#registerBtn").onclick=()=>emailAuth("register");
+$("#switchAuth").onclick=()=>setAuthMode(authMode==="login"?"register":"login");
+setAuthMode("login");
+setupTurnstile();
 init();
 $("#publishProject").onclick=()=>{document.querySelector('[data-tab="settingsTab"]').click();alert("Connect your Cloudflare details in Settings. Project publishing will use the selected project.");};
 $("#domainProject").onclick=()=>{document.querySelector('[data-tab="settingsTab"]').click();alert("Custom domain settings are available in the Publish connection area.");};
