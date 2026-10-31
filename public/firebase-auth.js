@@ -57,7 +57,7 @@ window.AppForgeFirebase = {
     return null;
   }
 };
-function authMessage(text){const el=document.querySelector("#authMessage");if(el)el.textContent=text;}
+function authMessage(text){const el=document.querySelector("#authMessage");if(el)el.textContent=text||"";}
 async function enterWorkspace(){document.querySelector("#authScreen")?.classList.add("hidden");document.querySelector("#appShell")?.classList.remove("hidden");window.dispatchEvent(new Event("appforge-authenticated"));}
 document.addEventListener("DOMContentLoaded",()=>{
  const $=s=>document.querySelector(s);
@@ -79,15 +79,14 @@ document.addEventListener("DOMContentLoaded",()=>{
      if(password.length<6){authMessage("Password must contain at least 6 characters.");return;}
      authMessage("Creating your account…");
      await window.AppForgeFirebase.register({email,password,firstName,lastName});
-     await enterWorkspace();
    }catch(e){authMessage(e.message||"Account creation failed.");}
  });
  cancel?.addEventListener("click",()=>setMode(false));
  login?.addEventListener("click",async()=>{try{
    const email=$("#authEmail").value.trim(),password=$("#authPassword").value;
    if(!email||!password){authMessage("Enter your email and password.");return;}
-   authMessage("Signing in…");await window.AppForgeFirebase.login(email,password);await enterWorkspace();
+   authMessage("Signing in…");await window.AppForgeFirebase.login(email,password);
  }catch(e){authMessage(e.message||"Sign in failed.")}});
- $("#googleLogin")?.addEventListener("click",async()=>{try{authMessage("Opening Google…");const r=await window.AppForgeFirebase.google();if(!r?.redirect)await enterWorkspace()}catch(e){authMessage(e.message||"Google sign-in failed.")}});
+ $("#googleLogin")?.addEventListener("click",async()=>{try{authMessage("Opening Google…");await window.AppForgeFirebase.google()}catch(e){authMessage(e.message||"Google sign-in failed.")}});
  window.AppForgeFirebaseReady.then(async u=>{try{if(u){await window.AppForgeFirebase.restoreRedirect().catch(()=>{});const r=await fetch("/auth/firebase-session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({idToken:await u.getIdToken()})});if(r.ok)await enterWorkspace()}}catch{}});
 });
