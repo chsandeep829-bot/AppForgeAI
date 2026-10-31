@@ -4,7 +4,7 @@ let project={files:[]}, user=null;
 const LAST_LOGIN_KEY="appforgeai_last_login"; let projects=[]; let currentProjectId=null;
 
 function keysFrom(text){return [...new Set((text||"").split(/[\n,]+/).map(x=>x.trim()).filter(Boolean).map(x=>x.includes("=")?x.slice(x.indexOf("=")+1).trim():x).filter(Boolean))]}
-function apiKeys(){return {groq:keysFrom(sessionStorage.getItem("af_groq")||""),gemini:keysFrom(sessionStorage.getItem("af_gemini")||"")}}
+function apiKeys(){return {groq:[],gemini:[]}}
 
 function message(text,who="ai"){
   const log=$("#chatLog"); if(!log)return;
@@ -58,13 +58,13 @@ function render(x){
 }
 
 async function build(prompt,edit=false){
-  const provider=$("#provider").value, own=apiKeys()[provider];
+  const provider=$("#provider").value;
   if(!prompt?.trim()){ $("#status").textContent="Describe the app you want to build."; return; }
   
   $("#generate").disabled=true;$("#status").textContent=edit?"Editing app…":"Building app…";const bd=$("#buildDetail");if(bd)bd.textContent="AI is generating your project files…";message(edit?"Editing your project…":"Build started…");
   try{
     const full=edit?prompt+"\n\nCurrent files:\n"+JSON.stringify(project.files):prompt;
-    const r=await fetch("/api/generate",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({prompt:full,provider,apiKeys:{[provider]:own}})});
+    const r=await fetch("/api/generate",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({prompt:full,provider,generationMode:$("#generationMode")?.value||"auto/best-fast"})});
     const d=await r.json();if(!r.ok)throw new Error(d.error||"Build failed");
     if(!d.result||!Array.isArray(d.result.files))throw new Error("The AI returned an incomplete project. Please try again.");
     render(d.result);persistCurrent();
@@ -80,7 +80,24 @@ $("#refreshPreview").onclick=()=>render(project);
 $("#sendChat").onclick=async()=>{const v=$("#chatInput").value.trim();if(!v)return;message(v,"user");$("#chatInput").value="";await build(v,true);persistCurrent()};
 document.querySelectorAll(".projectTab").forEach(b=>b.onclick=()=>{document.querySelectorAll(".projectTab,.projectPanel").forEach(x=>x.classList.remove("active"));b.classList.add("active");$("#"+b.dataset.projectTab).classList.add("active")});
 
-$("#saveKeys").onclick=async()=>{const provider=$("#provider").value; if(!user?.email){$("#apiMessage").textContent="Please sign in with your Firebase account before saving API keys.";return} const text=$(provider==="groq"?"#groqKeys":"#geminiKeys").value;const keys=keysFrom(text);if(!keys.length){$("#apiMessage").textContent="Add at least one key for the selected provider.";return}$("#apiMessage").textContent="Saving securely…";try{const r=await fetch("/api/keys/save",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({provider,keys})});const d=await r.json();if(!r.ok)throw new Error(d.error||"Save failed");sessionStorage.setItem("af_"+provider,text);$("#apiMessage").textContent=provider+" keys saved securely to your account ("+d.keyCount+" key(s))."}catch(e){$("#apiMessage").textContent="Save failed: "+e.message}};
+$("#saveKeys").onclick=async()=>{
+  if(!user?.email){$("#apiMessage").textContent="Please sign in before saving provider settings.";return}
+  const providers=[
+    {provider:"groq",keys:keysFrom($("#groqKeys").value)},
+    {provider:"gemini",keys:keysFrom($("#geminiKeys").value)}
+  ].filter(x=>x.keys.length);
+  if(!providers.length){$("#apiMessage").textContent="Add at least one API key.";return}
+  $("#apiMessage").textContent="Saving securely…";
+  try{
+    const results=[];
+    for(const item of providers){
+      const r=await fetch("/api/keys/save",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(item)});
+      const d=await r.json();if(!r.ok)throw new Error(d.error||"Save failed");results.push(item.provider+" ("+d.keyCount+" keys)");
+    }
+    $("#groqKeys").value="";$("#geminiKeys").value="";
+    $("#apiMessage").textContent="Saved securely: "+results.join(", ")+". Keys are not kept in browser storage.";
+  }catch(e){$("#apiMessage").textContent="Save failed: "+e.message}
+};
 
 async function testProvider(provider){
   const keys=keysFrom($(provider==="groq"?"#groqKeys":"#geminiKeys").value);
