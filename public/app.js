@@ -29,6 +29,7 @@ async function init(){
   if(admin)admin.classList.add("hidden");
   loadApks();
   loadProjects();
+  loadProviderStatus();
 }
 
 document.querySelectorAll(".nav").forEach(b=>b.addEventListener("click",()=>{
@@ -80,6 +81,13 @@ $("#refreshPreview").onclick=()=>render(project);
 $("#sendChat").onclick=async()=>{const v=$("#chatInput").value.trim();if(!v)return;message(v,"user");$("#chatInput").value="";await build(v,true);persistCurrent()};
 document.querySelectorAll(".projectTab").forEach(b=>b.onclick=()=>{document.querySelectorAll(".projectTab,.projectPanel").forEach(x=>x.classList.remove("active"));b.classList.add("active");$("#"+b.dataset.projectTab).classList.add("active")});
 
+async function loadProviderStatus(){
+ const msg=$("#apiMessage");if(!user?.email)return;
+ try{const r=await fetch("/api/providers");const d=await r.json();if(!r.ok)throw new Error(d.error||"Could not load providers");
+ const items=(d.providers||[]).map(p=>p.name+": "+(p.configured?(p.enabled?"configured":"disabled"):"not configured"));
+ if(items.length)msg.textContent=items.join(" · ")+" — saved keys are masked and never returned to the browser.";
+ }catch(e){msg.textContent="Provider status unavailable: "+e.message}
+}
 $("#saveKeys").onclick=async()=>{
   if(!user?.email){$("#apiMessage").textContent="Please sign in before saving provider settings.";return}
   const providers=[
@@ -91,11 +99,11 @@ $("#saveKeys").onclick=async()=>{
   try{
     const results=[];
     for(const item of providers){
-      const r=await fetch("/api/keys/save",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(item)});
+      const r=await fetch("/api/keys/save",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({...item,baseUrl:$("#"+item.provider+"BaseUrl")?.value||"",defaultModel:$("#"+item.provider+"Model")?.value||"",enabled:$("#"+item.provider+"Enabled")?.checked!==false})});
       const d=await r.json();if(!r.ok)throw new Error(d.error||"Save failed");results.push(item.provider+" ("+d.keyCount+" keys)");
     }
     $("#groqKeys").value="";$("#geminiKeys").value="";
-    $("#apiMessage").textContent="Saved securely: "+results.join(", ")+". Keys are not kept in browser storage.";
+    $("#apiMessage").textContent="Saved securely: "+results.join(", ")+". Keys are not kept in browser storage.";loadProviderStatus();
   }catch(e){$("#apiMessage").textContent="Save failed: "+e.message}
 };
 
