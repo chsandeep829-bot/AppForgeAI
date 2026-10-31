@@ -235,3 +235,17 @@ document.addEventListener("DOMContentLoaded",()=>{
 
 const adminNav=$("#adminNav");if(adminNav){adminNav.onclick=()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));$("#adminTab").classList.add("active");loadAdminOverview().catch(e=>$("#adminStats").textContent=e.message);};}
 const adminOpenSettings=$("#adminOpenSettings");if(adminOpenSettings)adminOpenSettings.onclick=()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));$("#settingsTab").classList.add("active");};
+
+function closeMobileMenu(){
+  document.querySelector("#sidebar")?.classList.remove("open","drawerOpen");
+  document.querySelector("#sidebarBackdrop")?.classList.remove("open");
+  document.querySelector("#menuToggle")?.setAttribute("aria-expanded","false");
+}
+function openMobileMenu(){
+  document.querySelector("#sidebar")?.classList.add("open");
+  document.querySelector("#sidebarBackdrop")?.classList.add("open");
+  document.querySelector("#menuToggle")?.setAttribute("aria-expanded","true");
+}
+document.querySelector("#menuToggle")?.addEventListener("click",()=>document.querySelector("#sidebar")?.classList.contains("open")?closeMobileMenu():openMobileMenu());
+document.querySelector("#sidebarBackdrop")?.addEventListener("click",closeMobileMenu);
+document.querySelectorAll("#sidebar button").forEach(b=>b.addEventListener("click",()=>{if(innerWidth<=800)closeMobileMenu();}));
