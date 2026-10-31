@@ -32,7 +32,7 @@ document.querySelectorAll(".nav").forEach(b=>b.addEventListener("click",()=>{
 
 function saveProjects(){localStorage.setItem("appforge_projects",JSON.stringify(projects))}
 function loadProjects(){try{projects=JSON.parse(localStorage.getItem("appforge_projects")||"[]")}catch{projects=[]}renderProjectCards()}
-function renderProjectCards(){const box=$("#projectCards"),empty=$("#emptyProjects");if(!box)return;box.textContent="";if(!projects.length){empty.classList.remove("hidden");return}empty.classList.add("hidden");projects.forEach(p=>{const c=document.createElement("button");c.className="projectCard";c.innerHTML="<span class=\"projectIcon\">✦</span><strong></strong><small></small>";c.querySelector("strong").textContent=p.name;c.querySelector("small").textContent=p.updated?"Updated "+new Date(p.updated).toLocaleDateString():"New project";c.onclick=()=>openProject(p.id);box.append(c)})}
+function renderProjectCards(){const count=document.querySelector(".navCount");if(count)count.textContent=projects.length;const box=$("#projectCards"),empty=$("#emptyProjects");if(!box)return;box.textContent="";if(!projects.length){empty.classList.remove("hidden");return}empty.classList.add("hidden");projects.forEach(p=>{const c=document.createElement("button");c.className="projectCard";c.innerHTML="<span class=\"projectIcon\">✦</span><strong></strong><small></small>";c.querySelector("strong").textContent=p.name;c.querySelector("small").textContent=p.updated?"Updated "+new Date(p.updated).toLocaleDateString():"New project";c.onclick=()=>openProject(p.id);box.append(c)})}
 function showNewProject(){ $("#projectHome").classList.add("hidden");$("#projectDetail").classList.add("hidden");$("#newProjectView").classList.remove("hidden");$("#prompt").focus() }
 function showProjectHome(){ $("#newProjectView").classList.add("hidden");$("#projectDetail").classList.add("hidden");$("#projectHome").classList.remove("hidden");renderProjectCards() }
 function openProject(id){const p=projects.find(x=>x.id===id);if(!p)return;currentProjectId=id;project=p.data||{files:[]};$("#detailProjectName").textContent=p.name;$("#previewTitle").textContent=p.name+" Preview";$("#projectHome").classList.add("hidden");$("#newProjectView").classList.add("hidden");$("#projectDetail").classList.remove("hidden");render(project)}
@@ -65,7 +65,7 @@ async function build(prompt,edit=false){
   }catch(e){$("#status").textContent="Build failed";message("Error: "+e.message)}finally{$("#generate").disabled=false}
 }
 
-$("#newProject").onclick=showNewProject;$("#emptyNewProject").onclick=showNewProject;$("#backProjects").onclick=showProjectHome;$("#closeProject").onclick=showProjectHome;
+$("#newProject").onclick=showNewProject;$("#newProjectSide").onclick=showNewProject;$("#emptyNewProject").onclick=showNewProject;$("#backProjects").onclick=showProjectHome;$("#closeProject").onclick=showProjectHome;
 $("#generate").onclick=async()=>{const name=$("#newProjectName").value.trim();if(!name){$("#newProjectName").focus();return}const id=Date.now().toString();currentProjectId=id;projects.push({id,name,data:{files:[]},updated:Date.now()});saveProjects();await build($("#prompt").value);if(!project.files?.length){projects=projects.filter(p=>p.id!==id);saveProjects();return;}persistCurrent();$("#newProjectName").value="";$("#detailProjectName").textContent=name;$("#previewTitle").textContent=name+" Preview";$("#newProjectView").classList.add("hidden");$("#projectDetail").classList.remove("hidden")};
 document.querySelectorAll(".idea").forEach(b=>b.onclick=()=>{$("#prompt").value=b.textContent+" with a premium modern design, responsive pages and realistic interactions.";$("#prompt").focus()});
 $("#copyCode").onclick=async()=>{try{await navigator.clipboard.writeText($("#output").textContent);$("#copyCode").textContent="✓";setTimeout(()=>$("#copyCode").textContent="▣",1200)}catch{}};
@@ -86,7 +86,7 @@ async function testProvider(provider){
 $("#testGroq").onclick=()=>testProvider("groq");
 $("#testGemini").onclick=()=>testProvider("gemini");
 
-$("#verifyCF").onclick=async()=>{
+if($("#verifyCF")) $("#verifyCF").onclick=async()=>{
   $("#cfResult").textContent="Checking…";
   try{
     const r=await fetch("/api/cloudflare/verify",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({token:$("#cfToken").value})});
@@ -97,74 +97,6 @@ $("#verifyCF").onclick=async()=>{
 async function loadApks(){const box=$("#apkList");try{const r=await fetch("/api/apks");const d=await r.json();box.textContent="";if(!d.releases?.length){box.textContent="No APK releases available yet.";return}d.releases.forEach(x=>{const row=document.createElement("div");row.className="card";const a=document.createElement("a");a.href=x.download_url;a.textContent="Download "+x.title+(x.version?" v"+x.version:"");a.target="_blank";a.rel="noopener";row.append(a);if(x.notes){const p=document.createElement("p");p.textContent=x.notes;row.append(p)}box.append(row)})}catch{box.textContent="Could not load APK releases."}}
 async function loadAdminApks(){const box=$("#adminApkList");try{const r=await fetch("/api/admin/apks");const d=await r.json();box.textContent="";(d.releases||[]).forEach(x=>{const row=document.createElement("div");const t=document.createElement("span");t.textContent=x.title+" "+(x.version||"");const del=document.createElement("button");del.textContent="Remove";del.onclick=async()=>{await fetch("/api/admin/apks/"+x.id,{method:"DELETE"});loadAdminApks();loadApks()};row.append(t,del);box.append(row)})}catch{}}
 $("#addApk").onclick=async()=>{const payload={title:$("#apkTitle").value,version:$("#apkVersion").value,downloadUrl:$("#apkUrl").value,notes:$("#apkNotes").value};$("#adminMessage").textContent="Publishing…";try{const r=await fetch("/api/admin/apks",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});const d=await r.json();if(!r.ok)throw new Error(d.error||"Failed");$("#adminMessage").textContent="APK download published.";["#apkTitle","#apkVersion","#apkUrl","#apkNotes"].forEach(s=>$(s).value="");loadAdminApks();loadApks()}catch(e){$("#adminMessage").textContent=e.message}};
-let authMode="login",turnstileWidget=null,turnstileReady=false;
-function setAuthMode(mode){
-  authMode=mode;
-  const register=mode==="register";
-  $("#registerFields").classList.toggle("hidden",!register);
-  $("#loginBtn").classList.toggle("hidden",register);
-  $("#registerBtn").classList.toggle("hidden",!register);
-  $("#switchAuth").innerHTML=register?"Already have an account? <strong>Sign in</strong>":"New here? <strong>Create an account</strong>";
-  $("#authMessage").textContent="";
-}
-async function setupTurnstile(){
-  try{
-    const r=await fetch("/auth/turnstile-config",{credentials:"same-origin"});
-    const d=await r.json();
-    if(!d.siteKey){$("#turnstileBox").style.display="none";return;}
-    if(document.querySelector('script[data-appforge-turnstile]'))return;
-    const script=document.createElement("script");
-    script.dataset.appforgeTurnstile="true";
-    script.src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
-    script.async=true;
-    script.onload=()=>{
-      try{
-        turnstileWidget=window.turnstile.render("#turnstileBox",{sitekey:d.siteKey,theme:"dark"});
-        turnstileReady=true;
-      }catch(e){$("#authMessage").textContent="Security verification could not start. Please refresh and try again.";}
-    };
-    script.onerror=()=>{$("#authMessage").textContent="Could not load security verification. Check your connection and refresh."};
-    document.head.append(script);
-  }catch{}
-}
-function authPayload(){
-  return {
-    username:$("#authUsername")?.value.trim()||"",
-    firstName:$("#authFirstName")?.value.trim()||"",
-    lastName:$("#authLastName")?.value.trim()||"",
-    email:$("#authEmail").value.trim(),
-    password:$("#authPassword").value,
-    turnstileToken:turnstileReady&&window.turnstile&&turnstileWidget!==null?window.turnstile.getResponse(turnstileWidget):""
-  };
-}
-async function emailAuth(mode){
-  const payload=authPayload();
-  if(!payload.email||!payload.password){$("#authMessage").textContent="Enter your email and password.";return;}
-  if(mode==="register"&&(!payload.username||!payload.firstName||!payload.lastName)){$("#authMessage").textContent="Complete your username, first name and last name.";return;}
-  const buttons=[$("#loginBtn"),$("#registerBtn")];
-  buttons.forEach(b=>b.disabled=true);
-  $("#authMessage").textContent=mode==="register"?"Creating your account…":"Signing in…";
-  try{
-    if(!window.AppForgeFirebase){await new Promise(r=>setTimeout(r,300));} if(!window.AppForgeFirebase)throw new Error("Firebase authentication is still loading. Please try again.");
-    if(mode==="register")await window.AppForgeFirebase.register(payload);else await window.AppForgeFirebase.login(payload.email,payload.password);
-    $("#authMessage").textContent=mode==="register"?"Account created. Opening your dashboard…":"Signed in. Opening your dashboard…";
-    await init();
-  }catch(e){
-    $("#authMessage").textContent=e instanceof Error?e.message:"Authentication failed. Please try again.";
-  }finally{
-    buttons.forEach(b=>b.disabled=false);
-    if(turnstileReady&&window.turnstile&&turnstileWidget!==null){
-      try{window.turnstile.reset(turnstileWidget)}catch{}
-    }
-  }
-}
-$("#loginBtn").onclick=()=>emailAuth("login");
-$("#googleLogin").onclick=async(e)=>{e.preventDefault();$("#authMessage").textContent="Opening Firebase Google sign-in…";try{if(!window.AppForgeFirebase){await new Promise(r=>setTimeout(r,300));}if(!window.AppForgeFirebase)throw new Error("Firebase authentication is still loading.");await window.AppForgeFirebase.google();$("#authMessage").textContent="Signed in. Opening your dashboard…";await init()}catch(err){$("#authMessage").textContent=err instanceof Error?err.message:"Firebase Google sign-in failed."}};
-$("#registerBtn").onclick=()=>emailAuth("register");
-$("#switchAuth").onclick=()=>setAuthMode(authMode==="login"?"register":"login");
-setAuthMode("login");
-setupTurnstile();
-(async()=>{try{await new Promise(r=>setTimeout(r,500));if(window.AppForgeFirebase?.restore){const restored=await window.AppForgeFirebase.restore();if(restored)await init();else await init();}else await init();}catch{await init();}})();
 $("#publishProject").onclick=()=>{document.querySelector('[data-tab="settingsTab"]').click();alert("Connect your Cloudflare details in Settings. Project publishing will use the selected project.");};
 $("#domainProject").onclick=()=>{document.querySelector('[data-tab="settingsTab"]').click();alert("Custom domain settings are available in the Publish connection area.");};
 $("#githubProject").onclick=()=>alert("GitHub project publishing connection is the next deployment step for this workspace.");
