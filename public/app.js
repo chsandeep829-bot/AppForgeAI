@@ -58,6 +58,16 @@ function render(x){
   $("#previewFrame").srcdoc=html.replace("</head>","<style>"+css.replace(/<\/style/gi,"")+"</style></head>").replace("</body>","<script>"+script.replace(/<\/script/gi,"")+"</script></body>");
 }
 
+async function saveProjectFiles(){
+ if(!currentProjectId||!project?.files)return;
+ const r=await fetch("/api/projects/"+encodeURIComponent(currentProjectId)+"/files",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify({files:project.files})});
+ if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.error||"Could not save project files.");}
+}
+async function loadProjectFiles(id){
+ const r=await fetch("/api/projects/"+encodeURIComponent(id)+"/files");
+ const d=await r.json();if(!r.ok)throw new Error(d.error||"Could not load project files.");
+ return d.files||[];
+}
 async function build(prompt,edit=false){
   const provider=$("#provider").value;
   if(!prompt?.trim()){ $("#status").textContent="Describe the app you want to build."; return; }
@@ -68,7 +78,7 @@ async function build(prompt,edit=false){
     const r=await fetch("/api/generate",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({prompt:full,provider,generationMode:$("#generationMode")?.value||"auto/best-fast"})});
     const d=await r.json();if(!r.ok)throw new Error(d.error||"Build failed");
     if(!d.result||!Array.isArray(d.result.files))throw new Error("The AI returned an incomplete project. Please try again.");
-    render(d.result);persistCurrent();
+    render(d.result);await saveProjectFiles();persistCurrent();
     $("#status").textContent="Build complete";if(d.provider)message("Generated using "+d.provider+(d.failover?.length?" after switching from another provider.":"."));if(bd)bd.textContent=(project.files||[]).length+" files generated · ready to preview";const pn=$("#projectName");if(pn)pn.textContent=d.result.projectName||"Untitled project";message("Build complete. Open Preview or ask for another edit.");
   }catch(e){$("#status").textContent="Build failed";message("Generation failed: "+e.message+" You can retry or choose another configured provider.")}finally{$("#generate").disabled=false}
 }
@@ -78,7 +88,7 @@ $("#generate").onclick=async()=>{const name=$("#newProjectName").value.trim();if
 document.querySelectorAll(".idea").forEach(b=>b.onclick=()=>{$("#prompt").value=b.textContent+" with a premium modern design, responsive pages and realistic interactions.";$("#prompt").focus()});
 $("#copyCode").onclick=async()=>{try{await navigator.clipboard.writeText($("#output").textContent);$("#copyCode").textContent="✓";setTimeout(()=>$("#copyCode").textContent="▣",1200)}catch{}};
 $("#refreshPreview").onclick=()=>render(project);
-$("#sendChat").onclick=async()=>{const v=$("#chatInput").value.trim();if(!v)return;message(v,"user");$("#chatInput").value="";await build(v,true);persistCurrent()};
+$("#sendChat").onclick=async()=>{const v=$("#chatInput").value.trim();if(!v)return;message(v,"user");$("#chatInput").value="";await build(v,true);await saveProjectFiles();persistCurrent()};
 document.querySelectorAll(".projectTab").forEach(b=>b.onclick=()=>{document.querySelectorAll(".projectTab,.projectPanel").forEach(x=>x.classList.remove("active"));b.classList.add("active");$("#"+b.dataset.projectTab).classList.add("active")});
 
 async function loadProviderStatus(){
