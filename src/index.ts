@@ -1,44 +1,21 @@
 export interface Env {
   ASSETS: Fetcher;
-  AI_API_KEY?: string;
-  AI_BASE_URL: string;
+  GROQ_API_KEY?: string; GEMINI_API_KEY?: string;
+  GROQ_API_KEY_1?: string; GROQ_API_KEY_2?: string; GROQ_API_KEY_3?: string; GROQ_API_KEY_4?: string; GROQ_API_KEY_5?: string; GROQ_API_KEY_6?: string; GROQ_API_KEY_7?: string; GROQ_API_KEY_8?: string; GROQ_API_KEY_9?: string;
+  GEMINI_API_KEY_1?: string; GEMINI_API_KEY_2?: string; GEMINI_API_KEY_3?: string; GEMINI_API_KEY_4?: string; GEMINI_API_KEY_5?: string; GEMINI_API_KEY_6?: string; GEMINI_API_KEY_7?: string; GEMINI_API_KEY_8?: string; GEMINI_API_KEY_9?: string;
 }
-
-const json = (data: unknown, status = 200) =>
-  new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json", "access-control-allow-origin": "*" } });
-
-export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url);
-    if (request.method === "OPTIONS") return new Response(null, { headers: { "access-control-allow-origin": "*", "access-control-allow-methods": "GET,POST,OPTIONS", "access-control-allow-headers": "content-type" } });
-
-    if (url.pathname === "/api/health") return json({ ok: true, service: "AppForgeAI Worker" });
-
-    if (url.pathname === "/api/generate" && request.method === "POST") {
-      if (!env.AI_API_KEY) return json({ error: "AI_API_KEY is not configured. Add it as a Cloudflare Worker secret before generating apps." }, 503);
-      try {
-        const body = await request.json<{ prompt?: string; model?: string }>();
-        if (!body.prompt?.trim()) return json({ error: "A project prompt is required." }, 400);
-
-        const system = "You are AppForgeAI, a professional AI app builder. Return a concise JSON object with projectName, summary, architecture, and files. Each file must have path and content. Generate practical, secure code and never invent deployment results.";
-        const upstream = await fetch(env.AI_BASE_URL.replace(/\/$/, "") + "/chat/completions", {
-          method: "POST",
-          headers: { "content-type": "application/json", authorization: "Bearer " + env.AI_API_KEY },
-          body: JSON.stringify({
-            model: body.model || "gpt-4o-mini",
-            messages: [{ role: "system", content: system }, { role: "user", content: body.prompt }],
-            response_format: { type: "json_object" }
-          })
-        });
-        const data = await upstream.json<any>();
-        if (!upstream.ok) return json({ error: data?.error?.message || "AI provider request failed." }, upstream.status);
-        const text = data?.choices?.[0]?.message?.content;
-        return json({ result: text ? JSON.parse(text) : data });
-      } catch (error) {
-        return json({ error: error instanceof Error ? error.message : "Generation failed." }, 500);
-      }
-    }
-
-    return env.ASSETS.fetch(request);
-  }
-};
+const json=(data:unknown,status=200)=>new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json","access-control-allow-origin":"*"}});
+function keys(env:Env,prefix:"GROQ_API_KEY"|"GEMINI_API_KEY"){const out:string[]=[]; const legacy=env[prefix]; if(legacy)out.push(legacy); for(let i=1;i<=9;i++){const k=env[`${prefix}_${i}` as keyof Env];if(typeof k==="string"&&k.trim())out.push(k.trim())} return [...new Set(out)];}
+async function tryKeys<T>(list:string[],run:(key:string)=>Promise<T>):Promise<T>{if(!list.length)throw new Error("No API key is configured for this provider.");let last:unknown;for(const key of list){try{return await run(key)}catch(e){last=e}}throw last instanceof Error?last:new Error("All configured API keys failed.");}
+async function groq(prompt:string,env:Env){
+ return tryKeys(keys(env,"GROQ_API_KEY"),async key=>{const r=await fetch("https://api.groq.com/openai/v1/chat/completions",{method:"POST",headers:{"content-type":"application/json",authorization:"Bearer "+key},body:JSON.stringify({model:"openai/gpt-oss-20b",messages:[{role:"system",content:"You are AppForgeAI, a production-minded AI app builder. Return valid JSON only: projectName, summary, architecture, files. files must be an array of useful starter files with path and content. Never claim deployment happened."},{role:"user",content:prompt}],response_format:{type:"json_object"}})});const d:any=await r.json();if(!r.ok)throw new Error(d?.error?.message||"Groq request failed");const text=d?.choices?.[0]?.message?.content;if(!text)throw new Error("Groq returned no generated content.");return JSON.parse(text);});
+}
+async function gemini(prompt:string,env:Env){
+ return tryKeys(keys(env,"GEMINI_API_KEY"),async key=>{const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+encodeURIComponent(key),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({contents:[{parts:[{text:"You are AppForgeAI. Return valid JSON only with projectName, summary, architecture, files (array of {path,content}). Build this application: "+prompt}]}],generationConfig:{responseMimeType:"application/json"}})});const d:any=await r.json();if(!r.ok)throw new Error(d?.error?.message||"Gemini request failed");const text=d?.candidates?.[0]?.content?.parts?.[0]?.text;if(!text)throw new Error("Gemini returned no generated content.");return JSON.parse(text);});
+}
+export default {async fetch(request:Request,env:Env):Promise<Response>{const url=new URL(request.url);
+if(request.method==="OPTIONS")return new Response(null,{headers:{"access-control-allow-origin":"*","access-control-allow-methods":"GET,POST,OPTIONS","access-control-allow-headers":"content-type"}});
+if(url.pathname==="/api/health")return json({ok:true,service:"AppForgeAI",providers:{groq:keys(env,"GROQ_API_KEY").length>0,gemini:keys(env,"GEMINI_API_KEY").length>0}});
+if(url.pathname==="/api/providers")return json({providers:[{id:"groq",name:"Groq",configured:keys(env,"GROQ_API_KEY").length>0,keyCount:keys(env,"GROQ_API_KEY").length,model:"openai/gpt-oss-20b"},{id:"gemini",name:"Google Gemini",configured:keys(env,"GEMINI_API_KEY").length>0,keyCount:keys(env,"GEMINI_API_KEY").length,model:"gemini-2.0-flash"}]});
+if(url.pathname==="/api/generate"&&request.method==="POST"){try{const b=await request.json<any>();if(!b.prompt?.trim())return json({error:"Please describe the app you want to build."},400);const provider=b.provider==="gemini"?"gemini":"groq";const result=provider==="gemini"?await gemini(b.prompt,env):await groq(b.prompt,env);return json({result,provider});}catch(e){return json({error:e instanceof Error?e.message:"Generation failed."},500)}}
+return env.ASSETS.fetch(request);}};
