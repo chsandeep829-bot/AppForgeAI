@@ -9,7 +9,7 @@
     <div class="loginLine"></div>
     <h1>Build real apps with <span>AI.</span></h1>
     <p>Describe your idea. Build, edit, preview and publish from one workspace.</p>
-    <a class="google" href="/auth/google"><span class="googleG">G</span><span>Continue with Google</span><b>›</b></a>
+    <a class="google" id="googleLogin" href="/auth/google"><span class="googleG">G</span><span>Continue with Google</span><b>›</b></a>
     <div class="divider"><span></span>or continue with email<span></span></div>
     <div id="registerFields" class="hidden">
       <input id="authUsername" placeholder="Username">
@@ -18,8 +18,8 @@
     <label class="inputWrap"><span>✉</span><input id="authEmail" type="email" placeholder="Email address"></label>
     <label class="inputWrap"><span>🔒</span><input id="authPassword" type="password" placeholder="Password (minimum 8 characters)"></label>
     <div id="turnstileBox"></div>
-    <div class="row authButtons"><button id="loginBtn" class="primary">Sign in <b>→</b></button><button id="registerBtn" class="secondary">Create account <b>→</b></button></div>
-    <button id="switchAuth" class="authSwitch">New here? <strong>Create an account</strong></button>
+    <div class="row authButtons"><button id="loginBtn" type="button" class="primary">Sign in <b>→</b></button><button id="registerBtn" type="button" class="secondary">Create account <b>→</b></button></div>
+    <button id="switchAuth" type="button" class="authSwitch">New here? <strong>Create an account</strong></button>
     <p id="authMessage" class="small"></p>
   </div>
 </div>
