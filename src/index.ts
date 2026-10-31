@@ -1,8 +1,5 @@
 export interface Env {
   ASSETS: Fetcher;
-  GOOGLE_CLIENT_ID?: string;
-  GOOGLE_CLIENT_SECRET?: string;
-  APP_URL?: string;
   USERS_DB?: D1Database;
   APPFORGEAI_ENCRYPTION_KEY?: string;
   APPFORGEAI_SESSION_SECRET?: string;
@@ -42,8 +39,6 @@ async function callGemini(prompt:string,keys:string[]){if(!keys.length)throw new
 export default {async fetch(req:Request,env:Env):Promise<Response>{const url=new URL(req.url);const appUrl=url.origin;
 try{
 await ensureUserSchema(env.USERS_DB);
-if(url.pathname==="/auth/google"){if(!env.GOOGLE_CLIENT_ID||!env.GOOGLE_CLIENT_SECRET)return new Response("Google login is not configured. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET as Worker secrets.",{status:503});const state=crypto.randomUUID();const redirect=appUrl+"/oauth/callback";const auth=new URL("https://accounts.google.com/o/oauth2/v2/auth");auth.searchParams.set("client_id",env.GOOGLE_CLIENT_ID);auth.searchParams.set("redirect_uri",redirect);auth.searchParams.set("response_type","code");auth.searchParams.set("scope","openid email profile");auth.searchParams.set("state",state);return new Response(null,{status:302,headers:{location:auth.toString(),"set-cookie":cookie("oauth_state",state)}})}
-if(url.pathname==="/oauth/callback"){const state=url.searchParams.get("state")||"";if(!state||state!==readCookie(req,"oauth_state"))return new Response("Invalid sign-in state.",{status:400});const code=url.searchParams.get("code");if(!code)return new Response("Google did not return an authorization code.",{status:400});const form=new URLSearchParams({code,client_id:env.GOOGLE_CLIENT_ID||"",client_secret:env.GOOGLE_CLIENT_SECRET||"",redirect_uri:appUrl+"/oauth/callback",grant_type:"authorization_code"});const tokenRes=await fetch("https://oauth2.googleapis.com/token",{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded"},body:form});const token:any=await tokenRes.json();if(!tokenRes.ok)throw new Error(token.error_description||"Google token exchange failed");const infoRes=await fetch("https://www.googleapis.com/oauth2/v3/userinfo",{headers:{authorization:"Bearer "+token.access_token}});const user:any=await infoRes.json();if(!infoRes.ok||!user?.email)throw new Error("Google account details could not be read.");if(env.USERS_DB){const existing:any=await env.USERS_DB.prepare("SELECT email FROM users WHERE email=?").bind(user.email).first();if(existing)await env.USERS_DB.prepare("UPDATE users SET name=?,auth_provider=? WHERE email=?").bind(user.name||user.email,"google",user.email).run();else {const googleUsername=(user.email.split("@")[0]+Math.random().toString(36).slice(2,7)).slice(0,30);const unavailablePasswordHash=await sha256("google-oauth:"+user.sub+":"+crypto.randomUUID());await env.USERS_DB.prepare("INSERT INTO users (email,username,name,password_hash,auth_provider) VALUES (?,?,?,?,?)").bind(user.email,googleUsername,user.name||user.email,unavailablePasswordHash,"google").run();}}const session=await makeSession({name:user.name,email:user.email,picture:user.picture,sub:user.sub},env.APPFORGEAI_SESSION_SECRET);return new Response(null,{status:302,headers:[["location","/"],["set-cookie",cookie("appforge_user",session,SESSION_AGE)],["set-cookie",cookie("oauth_state","",0)]]})}
 if(url.pathname==="/auth/firebase-session"&&req.method==="POST"){
  const b:any=await req.json();const idToken=String(b.idToken||"");if(!idToken)return json({error:"Missing Firebase sign-in token."},400);
  const firebaseKey=env.FIREBASE_API_KEY||"AIzaSyDsAwUplm90XLCh-n60XXF1Dz37w8akcYU";
