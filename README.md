@@ -2,99 +2,64 @@
 
 **Your AI. Your Apps. Your Infrastructure.**
 
-A Cloudflare Workers-ready AI app builder starter.
+AppForgeAI is a Cloudflare Workers application for authenticated AI-assisted project creation and management.
 
-## Requirements
+## Core workflow
 
-- Node.js 18 or newer
-- npm
-- A Cloudflare account for deployment
+1. Sign in with Firebase Authentication or the configured email account flow.
+2. Add an AI provider key in **API Settings**.
+3. Create a project from a natural-language prompt.
+4. Generate project files using the selected configured provider.
+5. Open the project to chat, edit files, save changes, preview generated content, and export the saved project.
+6. Use the Publish panel to record deployment requirements and custom-domain requests.
 
-## Run locally in Termux (Android)
+## Required Cloudflare configuration
 
-Install Node.js and Git:
+Configure the D1 binding named `USERS_DB` and Worker secrets:
 
-```bash
-pkg update && pkg upgrade
-pkg install nodejs git
-```
+- `APPFORGEAI_ENCRYPTION_KEY` — encrypts user-saved provider keys.
+- `APPFORGEAI_SESSION_SECRET` — signs application sessions.
+- `FIREBASE_API_KEY` — verifies Firebase ID tokens server-side.
 
-Clone the repository and enter it:
+Optional Turnstile configuration:
 
-```bash
-git clone https://github.com/chsandeep829-bot/AppForgeAI.git
-cd AppForgeAI
-```
+- `TURNSTILE_SECRET_KEY`
+- `TURNSTILE_SITE_KEY`
 
-Install dependencies:
+Use Wrangler secrets for sensitive values. Never put secrets in frontend files or commit them to GitHub.
+
+## Database
+
+The Worker creates and maintains the application tables when D1 is available, including users, projects, project files, project messages, provider configuration, encrypted provider keys, deployments, and APK releases.
+
+## AI providers
+
+The UI supports:
+
+- Groq
+- Google Gemini
+- OpenAI-compatible endpoints
+- Custom OpenAI-compatible endpoints
+- OmniRoute-compatible endpoints
+
+For OpenAI-compatible and custom providers, configure both the API base URL and default model.
+
+## Publishing
+
+A project can always be exported from its actual saved files. A real one-click deployment requires an authorized deployment integration; AppForgeAI intentionally does not invent a public URL or claim that a deployment succeeded before a provider actually returns one.
+
+To finish one-click publishing, connect a deployment provider credential or OAuth integration and implement the provider-specific upload/build API. Keep those credentials server-side.
+
+## Local development
 
 ```bash
 npm install
-```
-
-Create a local development secrets file named `.dev.vars`:
-
-```bash
-nano .dev.vars
-```
-
-Add your AI provider key:
-
-```env
-AI_API_KEY=your_secret_key_here
-```
-
-Do not commit `.dev.vars` or any API key to GitHub.
-
-Start the local Worker:
-
-```bash
 npm run dev
 ```
 
-Termux will display a local URL. Open that URL in your browser.
-
-## Deploy to Cloudflare Workers from Termux
-
-Log in to Cloudflare:
-
-```bash
-npx wrangler login
-```
-
-Set your production AI key securely:
-
-```bash
-npx wrangler secret put AI_API_KEY
-```
-
-Paste the key when Wrangler asks. Then deploy:
+For production:
 
 ```bash
 npm run deploy
 ```
 
-Wrangler will display the deployed `workers.dev` URL.
-
-## Configure a different AI provider
-
-The Worker uses an OpenAI-compatible API format. Change `AI_BASE_URL` in `wrangler.jsonc` to your provider's API base URL. Keep the API key in `.dev.vars` locally and as a Cloudflare secret in production.
-
-## Deploy from the Cloudflare dashboard
-
-1. Sign in to Cloudflare.
-2. Open **Workers & Pages**.
-3. Create a new Worker or import this Git repository.
-4. Use this repository: `chsandeep829-bot/AppForgeAI`.
-5. Add an environment secret named `AI_API_KEY`.
-6. Deploy the Worker.
-
-## Security
-
-Never add API keys to:
-- `wrangler.jsonc`
-- frontend JavaScript
-- HTML files
-- GitHub commits
-
-The `/api/generate` endpoint sends AI requests from the server-side Worker so the browser does not receive your secret key.
