@@ -68,3 +68,5 @@ main,.hero,.hero>div,.workspace-content{min-width:0}
 
 /* Publish workflow and responsive preview sizing */
 .publishPanel{margin:12px 0;padding:14px;border:1px solid rgba(255,255,255,.12);border-radius:14px;background:#111A2C;display:flex;gap:10px;align-items:center;flex-wrap:wrap}.publishPanel input,.publishPanel select{min-height:40px;max-width:280px;flex:1}.previewShell{overflow:auto}.previewShell iframe{width:100%;min-height:560px;border:0;transition:width .2s ease}.previewShell iframe.preview-tablet{width:768px}.previewShell iframe.preview-mobile{width:390px;min-height:700px}@media(max-width:800px){.publishPanel{align-items:stretch}.publishPanel input,.publishPanel select{max-width:none;width:100%}.previewShell iframe.preview-tablet{width:100%}.previewShell iframe.preview-mobile{width:min(390px,100%)}.projectActions{flex-wrap:wrap}.projectTop{align-items:flex-start}}
+
+.providerMeta{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0 14px}.providerMeta input{min-width:0;padding:12px;border-radius:10px;border:1px solid #454545;background:#171717;color:#fff}@media(max-width:700px){.providerMeta{grid-template-columns:1fr}}
