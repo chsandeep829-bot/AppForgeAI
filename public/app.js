@@ -70,12 +70,15 @@ async function build(prompt,edit=false){
   try{
     const full=edit?prompt+"\n\nCurrent files:\n"+JSON.stringify(project.files):prompt;
     const r=await fetch("/api/generate",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({prompt:full,provider,apiKeys:{[provider]:own}})});
-    const d=await r.json();if(!r.ok)throw new Error(d.error||"Build failed");render(d.result);$("#status").textContent="Build complete";$("#buildDetail").textContent=(project.files||[]).length+" files generated · ready to preview";$("#projectName").textContent=d.result.projectName||"Untitled project";message("Build complete. Open Preview or ask for another edit.");
+    const d=await r.json();if(!r.ok)throw new Error(d.error||"Build failed");
+    if(!d.result||!Array.isArray(d.result.files))throw new Error("The AI returned an incomplete project. Please try again.");
+    render(d.result);persistCurrent();
+    $("#status").textContent="Build complete";$("#buildDetail").textContent=(project.files||[]).length+" files generated · ready to preview";$("#projectName").textContent=d.result.projectName||"Untitled project";message("Build complete. Open Preview or ask for another edit.");
   }catch(e){$("#status").textContent="Build failed";message("Error: "+e.message)}finally{$("#generate").disabled=false}
 }
 
 $("#newProject").onclick=showNewProject;$("#emptyNewProject").onclick=showNewProject;$("#backProjects").onclick=showProjectHome;$("#closeProject").onclick=showProjectHome;
-$("#generate").onclick=async()=>{const name=$("#newProjectName").value.trim();if(!name){$("#newProjectName").focus();return}const id=Date.now().toString();currentProjectId=id;projects.push({id,name,data:{files:[]},updated:Date.now()});saveProjects();await build($("#prompt").value);persistCurrent();$("#newProjectName").value="";$("#detailProjectName").textContent=name;$("#previewTitle").textContent=name+" Preview";$("#newProjectView").classList.add("hidden");$("#projectDetail").classList.remove("hidden")};
+$("#generate").onclick=async()=>{const name=$("#newProjectName").value.trim();if(!name){$("#newProjectName").focus();return}const id=Date.now().toString();currentProjectId=id;projects.push({id,name,data:{files:[]},updated:Date.now()});saveProjects();await build($("#prompt").value);if(!project.files?.length){projects=projects.filter(p=>p.id!==id);saveProjects();return;}persistCurrent();$("#newProjectName").value="";$("#detailProjectName").textContent=name;$("#previewTitle").textContent=name+" Preview";$("#newProjectView").classList.add("hidden");$("#projectDetail").classList.remove("hidden")};
 document.querySelectorAll(".idea").forEach(b=>b.onclick=()=>{$("#prompt").value=b.textContent+" with a premium modern design, responsive pages and realistic interactions.";$("#prompt").focus()});
 $("#copyCode").onclick=async()=>{try{await navigator.clipboard.writeText($("#output").textContent);$("#copyCode").textContent="✓";setTimeout(()=>$("#copyCode").textContent="▣",1200)}catch{}};
 $("#refreshPreview").onclick=()=>render(project);
