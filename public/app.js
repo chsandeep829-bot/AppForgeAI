@@ -72,7 +72,7 @@ async function loadProjects(){if(!user?.email){projects=[];renderProjectCards();
 function renderProjectCards(){const count=document.querySelector(".navCount");if(count)count.textContent=projects.length;const box=$("#projectCards"),empty=$("#emptyProjects");if(!box)return;box.textContent="";if(!projects.length){empty.classList.remove("hidden");return}empty.classList.add("hidden");projects.forEach(p=>{const c=document.createElement("button");c.className="projectCard";c.innerHTML="<span class=\"projectIcon\">✦</span><strong></strong><small></small>";c.querySelector("strong").textContent=p.name;c.querySelector("small").textContent=p.updated?"Updated "+new Date(p.updated).toLocaleDateString():"New project";c.onclick=()=>openProject(p.id);box.append(c)})}
 function showNewProject(){ $("#projectHome").classList.add("hidden");$("#projectDetail").classList.add("hidden");$("#newProjectView").classList.remove("hidden");$("#prompt").focus() }
 function showProjectHome(){ $("#newProjectView").classList.add("hidden");$("#projectDetail").classList.add("hidden");$("#projectHome").classList.remove("hidden");renderProjectCards() }
-async function openProject(id){const p=projects.find(x=>x.id===id);if(!p)return;currentProjectId=id;project=p.data||{files:[]};$("#detailProjectName").textContent=p.name;$("#previewTitle").textContent=p.name+" Preview";$("#projectHome").classList.add("hidden");$("#newProjectView").classList.add("hidden");$("#projectDetail").classList.remove("hidden");$("#status").textContent="Loading saved files…";render(project);try{const saved=await loadProjectFiles(id);if(saved.length){project={...project,files:saved};p.data=project;render(project);message("Restored "+saved.length+" saved project file"+(saved.length===1?"":"s")+".");const msgs=await loadProjectMessages(id);if(msgs.length&&$("#chatlog")){$("#chatlog").innerHTML="";msgs.forEach(m=>addMessage(m.role,m.content));}}$("#status").textContent="Ready";}catch(e){$("#status").textContent="Could not load files";message("Could not restore saved files: "+e.message);}}
+async function openProject(id){const p=projects.find(x=>x.id===id);if(!p)return;currentProjectId=id;project=p.data||{files:[]};$("#detailProjectName").textContent=p.name;$("#previewTitle").textContent=p.name+" Preview";$("#projectHome").classList.add("hidden");$("#newProjectView").classList.add("hidden");$("#projectDetail").classList.remove("hidden");$("#status").textContent="Loading saved files…";render(project);try{const saved=await loadProjectFiles(id);if(saved.length){project={...project,files:saved};p.data=project;render(project);message("Restored "+saved.length+" saved project file"+(saved.length===1?"":"s")+".");const msgs=await loadProjectMessages(id);if(msgs.length&&$("#chatLog")){$("#chatLog").innerHTML="";msgs.forEach(m=>addMessage(m.role,m.content));}}$("#status").textContent="Ready";}catch(e){$("#status").textContent="Could not load files";message("Could not restore saved files: "+e.message);}}
 async function persistCurrent(status="ready"){const p=projects.find(x=>x.id===currentProjectId);if(p){p.data=project;p.status=status;p.updated=Date.now();await saveProjects();}}
 function render(x){
   project=x||{files:[]}; $("#files").innerHTML=""; $("#fileCount").textContent=(project.files||[]).length;
@@ -136,7 +136,9 @@ $("#saveKeys").onclick=async()=>{
   if(!user?.email){$("#apiMessage").textContent="Please sign in before saving provider settings.";return}
   const providers=[
     {provider:"groq",keys:keysFrom($("#groqKeys").value)},
-    {provider:"gemini",keys:keysFrom($("#geminiKeys").value)}
+    {provider:"gemini",keys:keysFrom($("#geminiKeys").value)},
+    {provider:"openai",keys:keysFrom($("#openaiKeys")?.value||""),baseUrl:$("#openaiBaseUrl")?.value.trim()||"",defaultModel:$("#openaiModel")?.value.trim()||""},
+    {provider:"custom",keys:keysFrom($("#customKeys")?.value||""),baseUrl:$("#customBaseUrl")?.value.trim()||"",defaultModel:$("#customModel")?.value.trim()||""}
   ].filter(x=>x.keys.length);
   if(!providers.length){$("#apiMessage").textContent="Add at least one API key.";return}
   $("#apiMessage").textContent="Saving securely…";
@@ -146,7 +148,7 @@ $("#saveKeys").onclick=async()=>{
       const r=await fetch("/api/keys/save",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({...item,baseUrl:$("#"+item.provider+"BaseUrl")?.value||"",defaultModel:$("#"+item.provider+"Model")?.value||"",enabled:$("#"+item.provider+"Enabled")?.checked!==false})});
       const d=await r.json();if(!r.ok)throw new Error(d.error||"Save failed");results.push(item.provider+" ("+d.keyCount+" keys)");
     }
-    $("#groqKeys").value="";$("#geminiKeys").value="";
+    $("#groqKeys").value="";$("#geminiKeys").value="";if($("#openaiKeys"))$("#openaiKeys").value="";if($("#customKeys"))$("#customKeys").value="";
     $("#apiMessage").textContent="Saved securely: "+results.join(", ")+". Keys are not kept in browser storage.";loadProviderStatus();
   }catch(e){$("#apiMessage").textContent="Save failed: "+e.message}
 };
