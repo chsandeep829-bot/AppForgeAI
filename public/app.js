@@ -180,3 +180,56 @@ setupTurnstile();
 $("#publishProject").onclick=()=>{document.querySelector('[data-tab="settingsTab"]').click();alert("Connect your Cloudflare details in Settings. Project publishing will use the selected project.");};
 $("#domainProject").onclick=()=>{document.querySelector('[data-tab="settingsTab"]').click();alert("Custom domain settings are available in the Publish connection area.");};
 $("#githubProject").onclick=()=>alert("GitHub project publishing connection is the next deployment step for this workspace.");
+
+// Reliable Firebase-only login page handlers.
+document.addEventListener("DOMContentLoaded", () => {
+  const msg = document.querySelector("#authMessage");
+  const setMsg = (text) => { if (msg) msg.textContent = text; };
+  const getFirebase = async () => {
+    for (let i = 0; i < 30; i++) {
+      if (window.AppForgeFirebase) return window.AppForgeFirebase;
+      await new Promise(r => setTimeout(r, 100));
+    }
+    throw new Error("Firebase failed to load. Check your internet connection and try again.");
+  };
+  const email = () => document.querySelector("#authEmail")?.value.trim();
+  const password = () => document.querySelector("#authPassword")?.value;
+  const first = () => document.querySelector("#authFirstName")?.value.trim();
+  const last = () => document.querySelector("#authLastName")?.value.trim();
+
+  document.querySelector("#loginBtn")?.addEventListener("click", async () => {
+    try {
+      if (!email() || !password()) throw new Error("Enter your email and password.");
+      setMsg("Signing you in…");
+      const fb = await getFirebase();
+      await fb.login(email(), password());
+      setMsg("Success! Opening your dashboard…");
+      await init();
+    } catch (e) { setMsg(e?.message || "Sign-in failed."); }
+  });
+
+  document.querySelector("#registerBtn")?.addEventListener("click", async () => {
+    try {
+      if (!email() || !password() || !first() || !last()) throw new Error("Enter your first name, last name, email and password.");
+      if (password().length < 8) throw new Error("Password must contain at least 8 characters.");
+      setMsg("Creating your Firebase account…");
+      const fb = await getFirebase();
+      await fb.register({ email: email(), password: password(), firstName: first(), lastName: last() });
+      setMsg("Account created! Opening your dashboard…");
+      await init();
+    } catch (e) { setMsg(e?.message || "Account creation failed."); }
+  });
+
+  document.querySelector("#googleLogin")?.addEventListener("click", async () => {
+    try {
+      setMsg("Opening Firebase Google sign-in…");
+      const fb = await getFirebase();
+      const result = await fb.google();
+      if (!result?.redirect) await init();
+    } catch (e) { setMsg(e?.message || "Google sign-in failed."); }
+  });
+
+  window.AppForgeFirebase?.restoreRedirect?.().then(async result => {
+    if (result) await init();
+  }).catch(e => setMsg(e?.message || "Could not complete Google sign-in."));
+});
