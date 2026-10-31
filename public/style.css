@@ -26,3 +26,24 @@ main{max-width:none;margin:0;padding:44px 52px;background:radial-gradient(circle
 @media(max-width:800px){.appLayout{grid-template-columns:1fr}.sidebar{position:fixed;left:-100%;top:0;bottom:0;width:285px;height:100vh;transition:left .25s;z-index:20}.topbar{display:flex;height:62px;background:#1c1c1c;border-bottom:1px solid #343434;padding:0 16px}.mobileBrand{display:flex;align-items:center;gap:9px}.brandLogo{width:38px;height:38px;border-radius:10px;object-fit:cover}.mobileBrand strong{font-size:18px}.mobileBrand span{color:#d6aa3c}main{padding:26px 16px 88px}.hero h1{font-size:32px}.sideBrand{display:flex}.projectCards{grid-template-columns:1fr}.sidebarFoot{display:flex}}
 
 .authScreen{position:fixed;inset:0;z-index:100;background:radial-gradient(circle at 50% 0,#1b2750,#0b1020 55%);display:grid;place-items:center;padding:20px}.authCard{width:min(420px,100%);padding:38px;border:1px solid #293a63;border-radius:28px;background:#111a2c;box-shadow:0 30px 90px #0008;text-align:center}.authLogo{width:88px;height:88px;object-fit:contain;margin-bottom:12px}.authCard h1{margin:4px 0;font-size:28px}.authCard p{color:#9aa7c2;margin:8px 0 24px}.authCard input{width:100%;box-sizing:border-box;margin:7px 0;padding:14px 15px;border-radius:12px;border:1px solid #30405f;background:#0b1020;color:#fff}.authRow{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:10px}.authRow button,.googleBtn{padding:13px;border-radius:12px}.googleBtn{width:100%;margin-top:12px;background:#fff;color:#182033;border:0;font-weight:700}.hidden{display:none!important}
+
+/* Mobile workspace drawer: keep navigation completely outside content flow */
+.mobileMenuToggle{display:none}
+.drawerBackdrop{display:none}
+main,.hero,.hero>div,.workspace-content{min-width:0}
+.hero h1,.hero p,.workspaceHeading{max-width:100%;overflow-wrap:anywhere;word-break:normal}
+@media(max-width:800px){
+  body{overflow-x:hidden}
+  .appLayout{display:block;min-height:100svh}
+  .mobileMenuToggle{display:inline-grid;place-items:center;width:42px;height:42px;padding:0;background:#2a2a2a;border:1px solid #4a4a4a;border-radius:11px;font-size:21px;position:relative;z-index:70}
+  .drawerBackdrop{position:fixed;inset:0;background:#0009;z-index:80}
+  .drawerBackdrop.open{display:block}
+  .sidebar{position:fixed!important;inset:0 auto 0 0!important;width:min(82vw,300px)!important;height:100svh!important;transform:translateX(-105%);transition:transform .28s ease;z-index:90!important;overflow-y:auto;box-shadow:24px 0 55px #000a}
+  .sidebar.drawerOpen{transform:translateX(0)}
+  main{position:relative;z-index:1;width:100%;margin:0;padding:24px 16px 48px;overflow-x:hidden}
+  .topbar{position:sticky;top:0;z-index:60}
+  .hero{display:block}
+  .hero h1{font-size:clamp(1.75rem,8vw,2.25rem);line-height:1.12;letter-spacing:-.8px}
+  .hero .primary{margin-top:16px;width:100%}
+  .workspace,.promptCard,.projectCard,.card{max-width:100%;min-width:0}
+}
