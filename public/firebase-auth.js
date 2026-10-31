@@ -24,6 +24,7 @@ const auth=getAuth(app);
 const provider=new GoogleAuthProvider();
 provider.setCustomParameters({prompt:"select_account"});
 let sessionPromise=null;
+let authRestoreStarted=false;
 
 function authMessage(text){const el=document.querySelector("#authMessage");if(el)el.textContent=text||"";}
 function setBusy(id,busy,label){const el=document.querySelector(id);if(!el)return;el.disabled=busy;if(label)el.dataset.label=el.dataset.label||el.textContent,el.textContent=busy?label:el.dataset.label;}
@@ -58,7 +59,7 @@ async function enterWorkspace(user){
 
 window.AppForgeFirebase={
   auth,
-  async logout(){ await fetch("/auth/logout",{method:"GET",credentials:"same-origin"}).catch(()=>{}); await signOut(auth); window.__APPFORGE_AUTH_INTENT=false; document.querySelector("#appShell")?.classList.add("hidden"); const screen=document.querySelector("#authScreen"); screen?.classList.remove("hidden"); screen?.removeAttribute("aria-hidden"); },
+  async logout(){ authRestoreStarted=true; await fetch("/auth/logout",{method:"POST",credentials:"same-origin"}).catch(()=>{}); await signOut(auth); window.__APPFORGE_AUTH_INTENT=false; authRestoreStarted=false; document.querySelector("#appShell")?.classList.add("hidden"); const screen=document.querySelector("#authScreen"); screen?.classList.remove("hidden"); screen?.removeAttribute("aria-hidden"); },
   async login(email,password){window.__APPFORGE_AUTH_INTENT=true;const result=await signInWithEmailAndPassword(auth,email,password);await completeSignIn(result.user);return result.user;},
   async register({email,password,firstName,lastName}){window.__APPFORGE_AUTH_INTENT=true;const result=await createUserWithEmailAndPassword(auth,email,password);await updateProfile(result.user,{displayName:(firstName+" "+lastName).trim()});await completeSignIn(result.user);return result.user;},
   async google(){
@@ -82,10 +83,18 @@ window.AppForgeFirebaseReady=new Promise(resolve=>{
   let first=true;
   onAuthStateChanged(auth,async user=>{
     if(first){first=false;resolve(user);}
-    if(!user || !window.__APPFORGE_AUTH_INTENT) return;
+    // Firebase keeps the user's session across refreshes. Restore the workspace
+    // automatically for that same authenticated user. Only an explicit Log out ends it.
+    if(!user || authRestoreStarted) return;
+    authRestoreStarted=true;
+    window.__APPFORGE_AUTH_INTENT=true;
     try{
       await completeSignIn(user);
-    }catch(error){console.error("AppForgeAI session setup failed",error);authMessage(error?.message||"Could not start your AppForgeAI session. Check the Worker secrets.");}
+    }catch(error){
+      authRestoreStarted=false;
+      console.error("AppForgeAI session setup failed",error);
+      authMessage(error?.message||"Could not start your AppForgeAI session. Check the Worker secrets.");
+    }
   });
 });
 
