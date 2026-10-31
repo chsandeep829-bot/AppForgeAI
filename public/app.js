@@ -171,7 +171,7 @@ async function emailAuth(mode){
   }
 }
 $("#loginBtn").onclick=()=>emailAuth("login");
-$("#googleLogin").onclick=async(e)=>{e.preventDefault();$("#authMessage").textContent="Opening Google sign-in…";try{if(!window.AppForgeFirebase)throw new Error("Firebase is still loading.");await window.AppForgeFirebase.google();$("#authMessage").textContent="Signed in. Opening your dashboard…";await init()}catch(err){$("#authMessage").textContent=err instanceof Error?err.message:"Google sign-in failed."}};
+$("#googleLogin").onclick=async(e)=>{e.preventDefault();$("#authMessage").textContent="Opening Firebase Google sign-in…";try{if(!window.AppForgeFirebase)throw new Error("Firebase is still loading.");await window.AppForgeFirebase.google();$("#authMessage").textContent="Signed in. Opening your dashboard…";await init()}catch(err){$("#authMessage").textContent=err instanceof Error?err.message:"Firebase Google sign-in failed."}};
 $("#registerBtn").onclick=()=>emailAuth("register");
 $("#switchAuth").onclick=()=>setAuthMode(authMode==="login"?"register":"login");
 setAuthMode("login");
