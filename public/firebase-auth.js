@@ -40,11 +40,12 @@ window.AppForgeFirebase = {
   async google() {
     const provider = new GoogleAuthProvider();
     try {
+      auth.useDeviceLanguage();
       const result = await signInWithPopup(auth, provider);
       return establish(result.user);
     } catch (error) {
       const code = error?.code || "";
-      if (code === "auth/popup-blocked") {
+      if (code === "auth/popup-blocked" || code === "auth/cancelled-popup-request") {
         await signInWithRedirect(auth, provider);
         return { redirect: true };
       }
@@ -87,6 +88,6 @@ document.addEventListener("DOMContentLoaded",()=>{
    if(!email||!password){authMessage("Enter your email and password.");return;}
    authMessage("Signing in…");await window.AppForgeFirebase.login(email,password);
  }catch(e){authMessage(e.message||"Sign in failed.")}});
- $("#googleLogin")?.addEventListener("click",async()=>{try{authMessage("Opening Google…");await window.AppForgeFirebase.google()}catch(e){authMessage(e.message||"Google sign-in failed.")}});
+ $("#googleLogin")?.addEventListener("click",async()=>{try{authMessage("");await window.AppForgeFirebase.google()}catch(e){authMessage(e.message||"Google sign-in failed.")}});
  window.AppForgeFirebaseReady.then(async u=>{try{if(u){await window.AppForgeFirebase.restoreRedirect().catch(()=>{});const r=await fetch("/auth/firebase-session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({idToken:await u.getIdToken()})});if(r.ok)await enterWorkspace()}}catch{}});
 });
