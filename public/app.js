@@ -49,13 +49,13 @@ function message(text,who="ai"){
   const d=document.createElement("div"); d.className="msg "+who; d.textContent=text; log.append(d); log.scrollTop=log.scrollHeight;
 }
 
-async function init(){
+async function init(authenticatedUser=null){
   // Never bypass the login screen merely because Firebase has a remembered account.
-  if(!window.__APPFORGE_AUTH_INTENT && !document.querySelector("#authScreen")?.classList.contains("hidden")) return;
+  if(!authenticatedUser && !window.__APPFORGE_AUTH_INTENT && !document.querySelector("#authScreen")?.classList.contains("hidden")) return;
   // Restore a real Firebase account silently only after an explicit authentication action.
   try {
     if (window.AppForgeFirebaseReady) {
-      const firebaseUser = await window.AppForgeFirebaseReady;
+      const firebaseUser = authenticatedUser || await window.AppForgeFirebaseReady;
       if (firebaseUser) await window.AppForgeFirebase.restoreRedirect().catch(()=>{});
       const me = await fetch("/auth/me",{credentials:"same-origin"}).then(r=>r.json()).catch(()=>({}));
       user = me.user || (firebaseUser ? {name:firebaseUser.displayName||"AppForgeAI User",email:firebaseUser.email||"",photoUrl:firebaseUser.photoURL||""} : {name:"AppForgeAI User",email:""}); if(firebaseUser?.photoURL&&!user.photoUrl)user.photoUrl=firebaseUser.photoURL;
@@ -83,6 +83,7 @@ async function init(){
   loadProviderStatus();
 }
 
+// Public entry point used by Firebase after a confirmed sign-in.\nwindow.AppForgeDashboard={start:async(firebaseUser)=>{window.__APPFORGE_AUTH_INTENT=true;await init(firebaseUser);}};\n
 document.querySelectorAll(".nav").forEach(b=>b.addEventListener("click",()=>{
   document.querySelectorAll(".nav,.tab").forEach(x=>x.classList.remove("active"));
   b.classList.add("active");
