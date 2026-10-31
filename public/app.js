@@ -157,7 +157,7 @@ async function emailAuth(mode){
   buttons.forEach(b=>b.disabled=true);
   $("#authMessage").textContent=mode==="register"?"Creating your account…":"Signing in…";
   try{
-    if(!window.AppForgeFirebase)throw new Error("Firebase is still loading. Please try again.");
+    if(!window.AppForgeFirebase){await new Promise(r=>setTimeout(r,300));} if(!window.AppForgeFirebase)throw new Error("Firebase authentication is still loading. Please try again.");
     if(mode==="register")await window.AppForgeFirebase.register(payload);else await window.AppForgeFirebase.login(payload.email,payload.password);
     $("#authMessage").textContent=mode==="register"?"Account created. Opening your dashboard…":"Signed in. Opening your dashboard…";
     await init();
@@ -171,12 +171,12 @@ async function emailAuth(mode){
   }
 }
 $("#loginBtn").onclick=()=>emailAuth("login");
-$("#googleLogin").onclick=async(e)=>{e.preventDefault();$("#authMessage").textContent="Opening Firebase Google sign-in…";try{if(!window.AppForgeFirebase)throw new Error("Firebase is still loading.");await window.AppForgeFirebase.google();$("#authMessage").textContent="Signed in. Opening your dashboard…";await init()}catch(err){$("#authMessage").textContent=err instanceof Error?err.message:"Firebase Google sign-in failed."}};
+$("#googleLogin").onclick=async(e)=>{e.preventDefault();$("#authMessage").textContent="Opening Firebase Google sign-in…";try{if(!window.AppForgeFirebase){await new Promise(r=>setTimeout(r,300));}if(!window.AppForgeFirebase)throw new Error("Firebase authentication is still loading.");await window.AppForgeFirebase.google();$("#authMessage").textContent="Signed in. Opening your dashboard…";await init()}catch(err){$("#authMessage").textContent=err instanceof Error?err.message:"Firebase Google sign-in failed."}};
 $("#registerBtn").onclick=()=>emailAuth("register");
 $("#switchAuth").onclick=()=>setAuthMode(authMode==="login"?"register":"login");
 setAuthMode("login");
 setupTurnstile();
-init();
+(async()=>{try{await new Promise(r=>setTimeout(r,500));if(window.AppForgeFirebase?.restore){const restored=await window.AppForgeFirebase.restore();if(restored)await init();else await init();}else await init();}catch{await init();}})();
 $("#publishProject").onclick=()=>{document.querySelector('[data-tab="settingsTab"]').click();alert("Connect your Cloudflare details in Settings. Project publishing will use the selected project.");};
 $("#domainProject").onclick=()=>{document.querySelector('[data-tab="settingsTab"]').click();alert("Custom domain settings are available in the Publish connection area.");};
 $("#githubProject").onclick=()=>alert("GitHub project publishing connection is the next deployment step for this workspace.");
