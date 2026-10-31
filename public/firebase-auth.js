@@ -31,7 +31,7 @@ async function establish(user){
   if(!user) return null;
   if(sessionPromise) return sessionPromise;
   sessionPromise=(async()=>{
-    const idToken=await user.getIdToken();
+    const idToken=await user.getIdToken(true);
     const response=await fetch("/auth/firebase-session",{method:"POST",credentials:"same-origin",headers:{"content-type":"application/json"},body:JSON.stringify({idToken})});
     const data=await response.json().catch(()=>({}));
     if(!response.ok) throw new Error(data.error||"Firebase login succeeded, but the AppForgeAI server session could not be started.");
@@ -60,7 +60,7 @@ window.AppForgeFirebase={
       if(["auth/popup-blocked","auth/popup-closed-by-user","auth/cancelled-popup-request"].includes(code)){
         await signInWithRedirect(auth,provider);return {redirect:true};
       }
-      if(code==="auth/network-request-failed") throw new Error("Google sign-in could not reach Firebase. Check your internet connection and add "+location.hostname+" to Firebase Authentication → Settings → Authorized domains.");
+      if(code==="auth/network-request-failed"){ await signInWithRedirect(auth,provider); return {redirect:true}; }
       throw error;
     }
   },
@@ -76,7 +76,7 @@ window.AppForgeFirebaseReady=new Promise(resolve=>{
     try{
       await establish(user);
       await enterWorkspace(user);
-    }catch(error){authMessage(error?.message||"Could not start your AppForgeAI session.");}
+    }catch(error){console.error("AppForgeAI session setup failed",error);authMessage(error?.message||"Could not start your AppForgeAI session. Check the Worker secrets.");}
   });
 });
 
