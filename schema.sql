@@ -1,3 +1,5 @@
 CREATE TABLE IF NOT EXISTS provider_keys (email TEXT NOT NULL, provider TEXT NOT NULL, encrypted_keys TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (email, provider));
 
 CREATE TABLE IF NOT EXISTS apk_releases (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, version TEXT, download_url TEXT NOT NULL, notes TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+
+CREATE TABLE IF NOT EXISTS pending_users (email TEXT PRIMARY KEY, username TEXT NOT NULL, first_name TEXT NOT NULL, last_name TEXT NOT NULL, password_hash TEXT NOT NULL, verify_token_hash TEXT NOT NULL, expires_at INTEGER NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
