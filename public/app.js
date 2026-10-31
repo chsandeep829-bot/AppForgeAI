@@ -1,5 +1,7 @@
 const $=s=>document.querySelector(s);
-let project={files:[]}, user=null; let projects=[]; let currentProjectId=null;
+let project={files:[]}, user=null;
+// Remember the last successful account locally for a friendlier next visit. Authentication remains in the secure HttpOnly session cookie.
+const LAST_LOGIN_KEY="appforgeai_last_login"; let projects=[]; let currentProjectId=null;
 
 function keysFrom(text){return [...new Set((text||"").split(/[\n,]+/).map(x=>x.trim()).filter(Boolean).map(x=>x.includes("=")?x.slice(x.indexOf("=")+1).trim():x).filter(Boolean))]}
 function apiKeys(){return {groq:keysFrom(sessionStorage.getItem("af_groq")||""),gemini:keysFrom(sessionStorage.getItem("af_gemini")||"")}}
@@ -13,6 +15,7 @@ async function init(){
   try{
     const r=await fetch("/auth/me",{credentials:"same-origin"});
     const d=await r.json(); user=d.user||null;
+    if(user?.email) localStorage.setItem(LAST_LOGIN_KEY,JSON.stringify({email:user.email,name:user.name||"",picture:user.picture||""}));
   }catch(e){console.error("Session check failed",e)}
   if(user){
     $("#loginScreen").classList.add("hidden");
@@ -29,6 +32,7 @@ async function init(){
   }else{
     $("#loginScreen").classList.remove("hidden");
     $("#appShell").classList.add("hidden");
+    try{const last=JSON.parse(localStorage.getItem(LAST_LOGIN_KEY)||"null");if(last?.email&&$("#authEmail")&&!$("#authEmail").value){$("#authEmail").value=last.email;$("#authMessage").textContent="Welcome back"+(last.name?", "+last.name:"")+". Enter your password to continue.";}}catch{}
   }
 }
 
