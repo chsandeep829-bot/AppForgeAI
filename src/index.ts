@@ -44,7 +44,8 @@ async function savedKeys(env:Env,email:string,provider:string){if(!env.USERS_DB)
 async function callGemini(prompt:string,keys:string[]){if(!keys.length)throw new Error("Add at least one Gemini API key in API Settings.");let last="";for(const key of keys){try{const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key="+encodeURIComponent(key),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({contents:[{parts:[{text:"Return valid JSON only with projectName, summary, architecture and files (array of {path,content}). Build this app: "+prompt}]}],generationConfig:{responseMimeType:"application/json"}})});const d:any=await r.json();if(r.ok)return JSON.parse(d?.candidates?.[0]?.content?.parts?.[0]?.text||"{}");last=d?.error?.message||"Gemini request failed"}catch(e){last=e instanceof Error?e.message:"Gemini request failed"}}throw new Error(last)}
 export default {async fetch(req:Request,env:Env):Promise<Response>{const url=new URL(req.url);const appUrl=url.origin;
 try{
-await ensureUserSchema(env.USERS_DB);\nawait ensureProjectSchema(env.USERS_DB);
+await ensureUserSchema(env.USERS_DB);
+await ensureProjectSchema(env.USERS_DB);
 if(url.pathname==="/auth/firebase-session"&&req.method==="POST"){
  const b:any=await req.json();const idToken=String(b.idToken||"");if(!idToken)return json({error:"Missing Firebase sign-in token."},400);
  const firebaseKey=env.FIREBASE_API_KEY;if(!firebaseKey)return json({error:"Firebase server verification is not configured."},503);
