@@ -1,3 +1,19 @@
+async function exportCurrentProject(){
+ if(!currentProjectId)throw new Error("Open a project first.");
+ const r=await fetch("/api/projects/"+encodeURIComponent(currentProjectId)+"/export");
+ const d=await r.json();if(!r.ok)throw new Error(d.error||"Export failed.");
+ const blob=new Blob([JSON.stringify(d,null,2)],{type:"application/json"});
+ const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=(d.project?.name||"appforge-project").replace(/[^a-z0-9_-]/gi,"-")+".json";a.click();URL.revokeObjectURL(a.href);
+ message("Project export downloaded with "+(d.files||[]).length+" saved files.");
+}
+async function requestDeployment(provider,customDomain){
+ if(!currentProjectId)throw new Error("Open a project first.");
+ const r=await fetch("/api/projects/"+encodeURIComponent(currentProjectId)+"/deployments",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({provider,customDomain})});
+ const d=await r.json();if(!r.ok)throw new Error(d.error||"Deployment request failed.");
+ message(d.message||"Deployment request saved.");
+ return d;
+}
+
 async function loadProjectMessages(id){const r=await fetch("/api/projects/"+encodeURIComponent(id)+"/messages");const d=await r.json();if(!r.ok)throw new Error(d.error||"Could not load chat.");return d.messages||[];}
 async function saveProjectMessage(role,content){if(!currentProjectId||!content)return;const r=await fetch("/api/projects/"+encodeURIComponent(currentProjectId)+"/messages",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({role,content})});if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.error||"Could not save message.");}}
 async function deleteProject(id){if(!confirm("Delete this project and its saved files? This cannot be undone."))return;const r=await fetch("/api/projects/"+encodeURIComponent(id),{method:"DELETE"});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Could not delete project.");projects=projects.filter(p=>p.id!==id);if(currentProjectId===id){currentProjectId="";project={files:[]};}await loadProjects();message("Project deleted.");}
