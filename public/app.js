@@ -43,13 +43,13 @@ async function loadProjects(){if(!user?.email){projects=[];renderProjectCards();
 function renderProjectCards(){const count=document.querySelector(".navCount");if(count)count.textContent=projects.length;const box=$("#projectCards"),empty=$("#emptyProjects");if(!box)return;box.textContent="";if(!projects.length){empty.classList.remove("hidden");return}empty.classList.add("hidden");projects.forEach(p=>{const c=document.createElement("button");c.className="projectCard";c.innerHTML="<span class=\"projectIcon\">✦</span><strong></strong><small></small>";c.querySelector("strong").textContent=p.name;c.querySelector("small").textContent=p.updated?"Updated "+new Date(p.updated).toLocaleDateString():"New project";c.onclick=()=>openProject(p.id);box.append(c)})}
 function showNewProject(){ $("#projectHome").classList.add("hidden");$("#projectDetail").classList.add("hidden");$("#newProjectView").classList.remove("hidden");$("#prompt").focus() }
 function showProjectHome(){ $("#newProjectView").classList.add("hidden");$("#projectDetail").classList.add("hidden");$("#projectHome").classList.remove("hidden");renderProjectCards() }
-function openProject(id){const p=projects.find(x=>x.id===id);if(!p)return;currentProjectId=id;project=p.data||{files:[]};$("#detailProjectName").textContent=p.name;$("#previewTitle").textContent=p.name+" Preview";$("#projectHome").classList.add("hidden");$("#newProjectView").classList.add("hidden");$("#projectDetail").classList.remove("hidden");render(project)}
+async function openProject(id){const p=projects.find(x=>x.id===id);if(!p)return;currentProjectId=id;project=p.data||{files:[]};$("#detailProjectName").textContent=p.name;$("#previewTitle").textContent=p.name+" Preview";$("#projectHome").classList.add("hidden");$("#newProjectView").classList.add("hidden");$("#projectDetail").classList.remove("hidden");$("#status").textContent="Loading saved files…";render(project);try{const saved=await loadProjectFiles(id);if(saved.length){project={...project,files:saved};p.data=project;render(project);message("Restored "+saved.length+" saved project file"+(saved.length===1?"":"s")+".");}$("#status").textContent="Ready";}catch(e){$("#status").textContent="Could not load files";message("Could not restore saved files: "+e.message);}}
 async function persistCurrent(status="ready"){const p=projects.find(x=>x.id===currentProjectId);if(p){p.data=project;p.status=status;p.updated=Date.now();await saveProjects();}}
 function render(x){
   project=x||{files:[]}; $("#files").innerHTML=""; $("#fileCount").textContent=(project.files||[]).length;
   (project.files||[]).forEach((f,i)=>{
     const b=document.createElement("button");b.className="file";b.textContent=f.path;
-    b.onclick=()=>{$("#fileTitle").textContent=f.path;$("#output").textContent=f.content};
+    b.onclick=()=>{selectProjectFile(i)};
     $("#files").append(b);if(i===0)b.click();
   });
   const html=(project.files||[]).find(f=>f.path.endsWith("index.html"))?.content||"<h2>Preview unavailable</h2>";
@@ -58,6 +58,9 @@ function render(x){
   $("#previewFrame").srcdoc=html.replace("</head>","<style>"+css.replace(/<\/style/gi,"")+"</style></head>").replace("</body>","<script>"+script.replace(/<\/script/gi,"")+"</script></body>");
 }
 
+let activeFileIndex=0;
+function selectProjectFile(i){activeFileIndex=i;const f=project.files?.[i];if(!f)return;$("#fileTitle").textContent=f.path;const output=$("#output");output.textContent=f.content;output.contentEditable="true";output.spellcheck=false;output.oninput=()=>{project.files[activeFileIndex].content=output.textContent;$("#status").textContent="Unsaved changes";};}
+async function saveActiveFile(){const output=$("#output");if(!project.files?.[activeFileIndex])return;project.files[activeFileIndex].content=output.textContent;await saveProjectFiles();await persistCurrent();$("#status").textContent="Saved";message("Saved "+project.files[activeFileIndex].path+".");render(project);selectProjectFile(activeFileIndex);}
 async function saveProjectFiles(){
  if(!currentProjectId||!project?.files)return;
  const r=await fetch("/api/projects/"+encodeURIComponent(currentProjectId)+"/files",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify({files:project.files})});
