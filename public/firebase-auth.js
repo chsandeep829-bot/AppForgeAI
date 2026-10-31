@@ -1,5 +1,5 @@
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
 
 /*
  Firebase web configuration is public by design. For production, optionally inject
@@ -40,6 +40,7 @@ async function establish(user){
   try{return await sessionPromise;}finally{sessionPromise=null;}
 }
 async function enterWorkspace(user){
+  window.__APPFORGE_AUTH_INTENT=true;
   const screen=document.querySelector("#authScreen");
   const shell=document.querySelector("#appShell");
   screen?.classList.add("hidden");
@@ -50,9 +51,11 @@ async function enterWorkspace(user){
 
 window.AppForgeFirebase={
   auth,
-  async login(email,password){const result=await signInWithEmailAndPassword(auth,email,password);await establish(result.user);return result.user;},
-  async register({email,password,firstName,lastName}){const result=await createUserWithEmailAndPassword(auth,email,password);await updateProfile(result.user,{displayName:(firstName+" "+lastName).trim()});await establish(result.user);return result.user;},
+  async logout(){ await signOut(auth); window.__APPFORGE_AUTH_INTENT=false; document.querySelector("#appShell")?.classList.add("hidden"); const screen=document.querySelector("#authScreen"); screen?.classList.remove("hidden"); screen?.removeAttribute("aria-hidden"); },
+  async login(email,password){window.__APPFORGE_AUTH_INTENT=true;const result=await signInWithEmailAndPassword(auth,email,password);await establish(result.user);return result.user;},
+  async register({email,password,firstName,lastName}){window.__APPFORGE_AUTH_INTENT=true;const result=await createUserWithEmailAndPassword(auth,email,password);await updateProfile(result.user,{displayName:(firstName+" "+lastName).trim()});await establish(result.user);return result.user;},
   async google(){
+    window.__APPFORGE_AUTH_INTENT=true;
     auth.useDeviceLanguage();
     try{const result=await signInWithPopup(auth,provider);await establish(result.user);return result.user;}
     catch(error){
@@ -64,7 +67,7 @@ window.AppForgeFirebase={
       throw error;
     }
   },
-  async restoreRedirect(){const result=await getRedirectResult(auth);if(result?.user){await establish(result.user);return result.user;}return null;}
+  async restoreRedirect(){const result=await getRedirectResult(auth);if(result?.user){window.__APPFORGE_AUTH_INTENT=true;await establish(result.user);return result.user;}return null;}
 };
 
 // This observer is the single source of truth for authentication state.
@@ -72,7 +75,7 @@ window.AppForgeFirebaseReady=new Promise(resolve=>{
   let first=true;
   onAuthStateChanged(auth,async user=>{
     if(first){first=false;resolve(user);}
-    if(!user) return;
+    if(!user || !window.__APPFORGE_AUTH_INTENT) return;
     try{
       await establish(user);
       await enterWorkspace(user);
