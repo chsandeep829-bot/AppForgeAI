@@ -59,6 +59,8 @@ async function init(){
       user = me.user || (firebaseUser ? {name:firebaseUser.displayName||"AppForgeAI User",email:firebaseUser.email||""} : {name:"AppForgeAI User",email:""});
     } else user={name:"AppForgeAI User",email:""};
   } catch { user={name:"AppForgeAI User",email:""}; }
+  if(!user?.email){document.querySelector("#appShell")?.classList.add("hidden");return;}
+  document.querySelector("#authScreen")?.classList.add("hidden");
   const shell=$("#appShell");
   if(shell)shell.classList.remove("hidden");
   const box=$("#userBox");
