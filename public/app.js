@@ -178,6 +178,7 @@ $("#addApk").onclick=async()=>{const payload={title:$("#apkTitle").value,version
 $("#publishProject").onclick=()=>showPublish().catch(e=>message("Publish unavailable: "+e.message));
 $("#domainProject").onclick=()=>showPublish().catch(e=>message("Domain unavailable: "+e.message));
 $("#githubProject").onclick=()=>exportCurrentProject().catch(e=>message("GitHub export preparation failed: "+e.message));
+$("#exportForPublish").onclick=()=>exportCurrentProject().catch(e=>message("Export failed: "+e.message));
 $("#closePublish").onclick=()=>$("#publishPanel").classList.add("hidden");
 $("#startDeployment").onclick=async()=>{const msg=$("#deploymentMessage");msg.textContent="Saving publish request…";try{const d=await requestDeployment($("#deployProvider").value,$("#customDomainInput").value.trim());msg.textContent=d.message||"Publish request saved.";await loadDeployments();}catch(e){msg.textContent="Publish request failed: "+e.message;}};
 document.querySelectorAll(".previewMode").forEach(b=>b.onclick=()=>{const frame=$("#previewFrame");frame.className="preview-"+b.dataset.previewMode;});
