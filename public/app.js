@@ -128,3 +128,15 @@ $("#githubProject").onclick=()=>alert("GitHub project publishing connection is t
 
 // Start after Firebase restores any previous signed-in account.
 init();
+
+/* Mobile drawer controller: sidebar is fixed and never occupies main content width. */
+(function(){
+ const toggle=$("#mobileMenuToggle"), drawer=document.querySelector(".sidebar"), backdrop=$("#drawerBackdrop");
+ if(!toggle||!drawer||!backdrop)return;
+ const close=()=>{drawer.classList.remove("drawerOpen");backdrop.classList.remove("open");toggle.setAttribute("aria-expanded","false");};
+ const open=()=>{drawer.classList.add("drawerOpen");backdrop.classList.add("open");toggle.setAttribute("aria-expanded","true");};
+ toggle.onclick=()=>drawer.classList.contains("drawerOpen")?close():open();
+ backdrop.onclick=close;
+ drawer.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{if(window.innerWidth<=800)close()}));
+ window.addEventListener("resize",()=>{if(window.innerWidth>800)close()});
+})();
