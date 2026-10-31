@@ -22,8 +22,8 @@ async function init(){
     if(user.picture){const img=document.createElement("img");img.src=user.picture;img.alt="";box.append(img)}
     const name=document.createElement("span");name.textContent=user.name||user.email;box.append(name);
     const out=document.createElement("a");out.href="/auth/logout";out.textContent="Sign out";box.append(out);
-    $("#groqKeys").value=sessionStorage.getItem("af_groq")||"";
-    $("#geminiKeys").value=sessionStorage.getItem("af_gemini")||"";
+    $("#groqKeys").value="";
+    $("#geminiKeys").value="";
     if(d.admin){$("#adminPanel").classList.remove("hidden");loadAdminApks()}
     loadApks();
   }else{
@@ -54,16 +54,19 @@ function render(x){
 async function build(prompt,edit=false){
   const provider=$("#provider").value, own=apiKeys()[provider];
   if(!prompt?.trim()){ $("#status").textContent="Describe the app you want to build."; return; }
-  if(!own.length){$("#apiMessage").textContent="Add at least one "+(provider==="groq"?"Groq":"Gemini")+" key.";document.querySelector('[data-tab="settingsTab"]').click();return}
-  $("#generate").disabled=true;$("#status").textContent=edit?"Editing app…":"Building app…";message(edit?"Editing your project…":"Build started…");
+  
+  $("#generate").disabled=true;$("#status").textContent=edit?"Editing app…":"Building app…";$("#buildDetail").textContent="AI is generating your project files…";message(edit?"Editing your project…":"Build started…");
   try{
     const full=edit?prompt+"\n\nCurrent files:\n"+JSON.stringify(project.files):prompt;
     const r=await fetch("/api/generate",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({prompt:full,provider,apiKeys:{[provider]:own}})});
-    const d=await r.json();if(!r.ok)throw new Error(d.error||"Build failed");render(d.result);$("#status").textContent="Build complete";message("Build complete. Open Preview or ask for another edit.");
+    const d=await r.json();if(!r.ok)throw new Error(d.error||"Build failed");render(d.result);$("#status").textContent="Build complete";$("#buildDetail").textContent=(project.files||[]).length+" files generated · ready to preview";$("#projectName").textContent=d.result.projectName||"Untitled project";message("Build complete. Open Preview or ask for another edit.");
   }catch(e){$("#status").textContent="Build failed";message("Error: "+e.message)}finally{$("#generate").disabled=false}
 }
 
 $("#generate").onclick=()=>build($("#prompt").value);
+document.querySelectorAll(".idea").forEach(b=>b.onclick=()=>{$("#prompt").value=b.textContent+" with a premium modern design, responsive pages and realistic interactions.";$("#prompt").focus()});
+$("#copyCode").onclick=async()=>{try{await navigator.clipboard.writeText($("#output").textContent);$("#copyCode").textContent="✓";setTimeout(()=>$("#copyCode").textContent="▣",1200)}catch{}};
+$("#refreshPreview").onclick=()=>render(project);
 $("#sendChat").onclick=()=>{const v=$("#chatInput").value.trim();if(!v)return;message(v,"user");$("#chatInput").value="";build(v,true)};
 
 $("#saveKeys").onclick=async()=>{const provider=$("#provider").value;const text=$(provider==="groq"?"#groqKeys":"#geminiKeys").value;const keys=keysFrom(text);if(!keys.length){$("#apiMessage").textContent="Add at least one key for the selected provider.";return}$("#apiMessage").textContent="Saving securely…";try{const r=await fetch("/api/keys/save",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({provider,keys})});const d=await r.json();if(!r.ok)throw new Error(d.error||"Save failed");sessionStorage.setItem("af_"+provider,text);$("#apiMessage").textContent=provider+" keys saved securely to your account ("+d.keyCount+" key(s))."}catch(e){$("#apiMessage").textContent="Save failed: "+e.message}};
