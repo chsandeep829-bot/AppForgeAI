@@ -1,3 +1,12 @@
+async function loadAdminOverview(){
+ const r=await fetch("/api/admin/overview");const d=await r.json();
+ if(!r.ok)throw new Error(d.error||"Could not load admin data.");
+ $("#adminStats").textContent=d.users+" registered users · "+d.projects+" projects";
+ const box=$("#adminUsers");box.textContent="";
+ if(!d.recentUsers?.length){box.textContent="No users found.";return;}
+ d.recentUsers.forEach(x=>{const row=document.createElement("div");row.className="note";row.textContent=(x.name||"User")+" — "+x.email;box.append(row);});
+}
+
 async function loadDeployments(){
  if(!currentProjectId)return;
  const r=await fetch("/api/projects/"+encodeURIComponent(currentProjectId)+"/deployments");
@@ -218,3 +227,6 @@ document.addEventListener("DOMContentLoaded",()=>{
  document.querySelectorAll("#sidebar a,#sidebar button").forEach(el=>el.addEventListener("click",()=>{if(window.innerWidth<=800)setMobileMenu(false)}));
  window.addEventListener("resize",()=>{if(window.innerWidth>800)setMobileMenu(false)});
 });
+
+const adminNav=$("#adminNav");if(adminNav){adminNav.onclick=()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));$("#adminTab").classList.add("active");loadAdminOverview().catch(e=>$("#adminStats").textContent=e.message);};}
+const adminOpenSettings=$("#adminOpenSettings");if(adminOpenSettings)adminOpenSettings.onclick=()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));$("#settingsTab").classList.add("active");};
