@@ -37,13 +37,13 @@ document.querySelectorAll(".nav").forEach(b=>b.addEventListener("click",()=>{
   $("#"+b.dataset.tab).classList.add("active");
 }));
 
-function saveProjects(){localStorage.setItem("appforge_projects",JSON.stringify(projects))}
-function loadProjects(){try{projects=JSON.parse(localStorage.getItem("appforge_projects")||"[]")}catch{projects=[]}renderProjectCards()}
+async function saveProjects(){if(!user?.email)return; const p=projects.find(x=>x.id===currentProjectId);if(p)await fetch("/api/projects/"+encodeURIComponent(p.id),{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify({name:p.name,status:p.status||"ready",data:p.data||{}})});}
+async function loadProjects(){if(!user?.email){projects=[];renderProjectCards();return}try{const r=await fetch("/api/projects");const d=await r.json();if(!r.ok)throw new Error(d.error);projects=d.projects||[];}catch{projects=[]}renderProjectCards()}
 function renderProjectCards(){const count=document.querySelector(".navCount");if(count)count.textContent=projects.length;const box=$("#projectCards"),empty=$("#emptyProjects");if(!box)return;box.textContent="";if(!projects.length){empty.classList.remove("hidden");return}empty.classList.add("hidden");projects.forEach(p=>{const c=document.createElement("button");c.className="projectCard";c.innerHTML="<span class=\"projectIcon\">✦</span><strong></strong><small></small>";c.querySelector("strong").textContent=p.name;c.querySelector("small").textContent=p.updated?"Updated "+new Date(p.updated).toLocaleDateString():"New project";c.onclick=()=>openProject(p.id);box.append(c)})}
 function showNewProject(){ $("#projectHome").classList.add("hidden");$("#projectDetail").classList.add("hidden");$("#newProjectView").classList.remove("hidden");$("#prompt").focus() }
 function showProjectHome(){ $("#newProjectView").classList.add("hidden");$("#projectDetail").classList.add("hidden");$("#projectHome").classList.remove("hidden");renderProjectCards() }
 function openProject(id){const p=projects.find(x=>x.id===id);if(!p)return;currentProjectId=id;project=p.data||{files:[]};$("#detailProjectName").textContent=p.name;$("#previewTitle").textContent=p.name+" Preview";$("#projectHome").classList.add("hidden");$("#newProjectView").classList.add("hidden");$("#projectDetail").classList.remove("hidden");render(project)}
-function persistCurrent(){const p=projects.find(x=>x.id===currentProjectId);if(p){p.data=project;p.updated=Date.now();saveProjects()}}
+async function persistCurrent(status="ready"){const p=projects.find(x=>x.id===currentProjectId);if(p){p.data=project;p.status=status;p.updated=Date.now();await saveProjects();}}
 function render(x){
   project=x||{files:[]}; $("#files").innerHTML=""; $("#fileCount").textContent=(project.files||[]).length;
   (project.files||[]).forEach((f,i)=>{
@@ -73,7 +73,7 @@ async function build(prompt,edit=false){
 }
 
 $("#newProject").onclick=showNewProject;$("#newProjectSide").onclick=showNewProject;$("#emptyNewProject").onclick=showNewProject;$("#backProjects").onclick=showProjectHome;$("#closeProject").onclick=showProjectHome;
-$("#generate").onclick=async()=>{const name=$("#newProjectName").value.trim();if(!name){$("#newProjectName").focus();return}const id=Date.now().toString();currentProjectId=id;projects.push({id,name,data:{files:[]},updated:Date.now()});saveProjects();await build($("#prompt").value);if(!project.files?.length){projects=projects.filter(p=>p.id!==id);saveProjects();return;}persistCurrent();$("#newProjectName").value="";$("#detailProjectName").textContent=name;$("#previewTitle").textContent=name+" Preview";$("#newProjectView").classList.add("hidden");$("#projectDetail").classList.remove("hidden")};
+$("#generate").onclick=async()=>{const name=$("#newProjectName").value.trim();if(!name){$("#newProjectName").focus();return}if(!user?.email){alert("Please sign in before creating a private project.");return}const created=await fetch("/api/projects",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({name,prompt:$("#prompt").value})}).then(async r=>{const d=await r.json();if(!r.ok)throw new Error(d.error);return d.project});const id=created.id;currentProjectId=id;projects.push({...created,data:{files:[]},updated:Date.now()});await build($("#prompt").value);if(!project.files?.length){projects=projects.filter(p=>p.id!==id);await fetch("/api/projects/"+encodeURIComponent(id),{method:"DELETE"});return;}persistCurrent();$("#newProjectName").value="";$("#detailProjectName").textContent=name;$("#previewTitle").textContent=name+" Preview";$("#newProjectView").classList.add("hidden");$("#projectDetail").classList.remove("hidden")};
 document.querySelectorAll(".idea").forEach(b=>b.onclick=()=>{$("#prompt").value=b.textContent+" with a premium modern design, responsive pages and realistic interactions.";$("#prompt").focus()});
 $("#copyCode").onclick=async()=>{try{await navigator.clipboard.writeText($("#output").textContent);$("#copyCode").textContent="✓";setTimeout(()=>$("#copyCode").textContent="▣",1200)}catch{}};
 $("#refreshPreview").onclick=()=>render(project);
