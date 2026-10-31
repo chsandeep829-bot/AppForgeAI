@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS provider_keys (email TEXT NOT NULL, provider TEXT NOT NULL, encrypted_keys TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (email, provider));
