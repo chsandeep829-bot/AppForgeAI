@@ -12,28 +12,16 @@ function message(text,who="ai"){
 }
 
 async function init(){
-  try{
-    const r=await fetch("/auth/me",{credentials:"same-origin"});
-    const d=await r.json(); user=d.user||null;
-    if(user?.email) localStorage.setItem(LAST_LOGIN_KEY,JSON.stringify({email:user.email,name:user.name||"",picture:user.picture||""}));
-  }catch(e){console.error("Session check failed",e)}
-  if(user){
-    $("#loginScreen").classList.add("hidden");
-    $("#appShell").classList.remove("hidden");
-    const box=$("#userBox");
-    box.textContent="";
-    if(user.picture){const img=document.createElement("img");img.src=user.picture;img.alt="";box.append(img)}
-    const name=document.createElement("span");name.textContent=user.name||user.email;box.append(name);
-    const out=document.createElement("a");out.href="/auth/logout";out.textContent="Sign out";box.append(out);
-    $("#groqKeys").value="";
-    $("#geminiKeys").value="";
-    if(d.admin){$("#adminPanel").classList.remove("hidden");loadAdminApks()}
-    loadApks(); loadProjects();
-  }else{
-    $("#loginScreen").classList.remove("hidden");
-    $("#appShell").classList.add("hidden");
-    try{const last=JSON.parse(localStorage.getItem(LAST_LOGIN_KEY)||"null");if(last?.email&&$("#authEmail")&&!$("#authEmail").value){$("#authEmail").value=last.email;$("#authMessage").textContent="Welcome back"+(last.name?", "+last.name:"")+". Enter your password to continue.";}}catch{}
-  }
+  // AppForgeAI now opens directly without a login screen.
+  user={name:"AppForgeAI User",email:""};
+  const shell=$("#appShell");
+  if(shell)shell.classList.remove("hidden");
+  const box=$("#userBox");
+  if(box){box.textContent="";const name=document.createElement("span");name.textContent="Workspace";box.append(name);}
+  const admin=$("#adminPanel");
+  if(admin)admin.classList.add("hidden");
+  loadApks();
+  loadProjects();
 }
 
 document.querySelectorAll(".nav").forEach(b=>b.addEventListener("click",()=>{
@@ -66,14 +54,14 @@ async function build(prompt,edit=false){
   const provider=$("#provider").value, own=apiKeys()[provider];
   if(!prompt?.trim()){ $("#status").textContent="Describe the app you want to build."; return; }
   
-  $("#generate").disabled=true;$("#status").textContent=edit?"Editing app…":"Building app…";$("#buildDetail").textContent="AI is generating your project files…";message(edit?"Editing your project…":"Build started…");
+  $("#generate").disabled=true;$("#status").textContent=edit?"Editing app…":"Building app…";const bd=$("#buildDetail");if(bd)bd.textContent="AI is generating your project files…";message(edit?"Editing your project…":"Build started…");
   try{
     const full=edit?prompt+"\n\nCurrent files:\n"+JSON.stringify(project.files):prompt;
     const r=await fetch("/api/generate",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({prompt:full,provider,apiKeys:{[provider]:own}})});
     const d=await r.json();if(!r.ok)throw new Error(d.error||"Build failed");
     if(!d.result||!Array.isArray(d.result.files))throw new Error("The AI returned an incomplete project. Please try again.");
     render(d.result);persistCurrent();
-    $("#status").textContent="Build complete";$("#buildDetail").textContent=(project.files||[]).length+" files generated · ready to preview";$("#projectName").textContent=d.result.projectName||"Untitled project";message("Build complete. Open Preview or ask for another edit.");
+    $("#status").textContent="Build complete";if(bd)bd.textContent=(project.files||[]).length+" files generated · ready to preview";const pn=$("#projectName");if(pn)pn.textContent=d.result.projectName||"Untitled project";message("Build complete. Open Preview or ask for another edit.");
   }catch(e){$("#status").textContent="Build failed";message("Error: "+e.message)}finally{$("#generate").disabled=false}
 }
 
@@ -181,55 +169,6 @@ $("#publishProject").onclick=()=>{document.querySelector('[data-tab="settingsTab
 $("#domainProject").onclick=()=>{document.querySelector('[data-tab="settingsTab"]').click();alert("Custom domain settings are available in the Publish connection area.");};
 $("#githubProject").onclick=()=>alert("GitHub project publishing connection is the next deployment step for this workspace.");
 
-// Reliable Firebase-only login page handlers.
-document.addEventListener("DOMContentLoaded", () => {
-  const msg = document.querySelector("#authMessage");
-  const setMsg = (text) => { if (msg) msg.textContent = text; };
-  const getFirebase = async () => {
-    for (let i = 0; i < 30; i++) {
-      if (window.AppForgeFirebase) return window.AppForgeFirebase;
-      await new Promise(r => setTimeout(r, 100));
-    }
-    throw new Error("Firebase failed to load. Check your internet connection and try again.");
-  };
-  const email = () => document.querySelector("#authEmail")?.value.trim();
-  const password = () => document.querySelector("#authPassword")?.value;
-  const first = () => document.querySelector("#authFirstName")?.value.trim();
-  const last = () => document.querySelector("#authLastName")?.value.trim();
 
-  document.querySelector("#loginBtn")?.addEventListener("click", async () => {
-    try {
-      if (!email() || !password()) throw new Error("Enter your email and password.");
-      setMsg("Signing you in…");
-      const fb = await getFirebase();
-      await fb.login(email(), password());
-      setMsg("Success! Opening your dashboard…");
-      await init();
-    } catch (e) { setMsg(e?.message || "Sign-in failed."); }
-  });
-
-  document.querySelector("#registerBtn")?.addEventListener("click", async () => {
-    try {
-      if (!email() || !password() || !first() || !last()) throw new Error("Enter your first name, last name, email and password.");
-      if (password().length < 8) throw new Error("Password must contain at least 8 characters.");
-      setMsg("Creating your Firebase account…");
-      const fb = await getFirebase();
-      await fb.register({ email: email(), password: password(), firstName: first(), lastName: last() });
-      setMsg("Account created! Opening your dashboard…");
-      await init();
-    } catch (e) { setMsg(e?.message || "Account creation failed."); }
-  });
-
-  document.querySelector("#googleLogin")?.addEventListener("click", async () => {
-    try {
-      setMsg("Opening Firebase Google sign-in…");
-      const fb = await getFirebase();
-      const result = await fb.google();
-      if (!result?.redirect) await init();
-    } catch (e) { setMsg(e?.message || "Google sign-in failed."); }
-  });
-
-  window.AppForgeFirebase?.restoreRedirect?.().then(async result => {
-    if (result) await init();
-  }).catch(e => setMsg(e?.message || "Could not complete Google sign-in."));
-});
+// Start the public workspace immediately.
+init();
