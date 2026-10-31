@@ -1,5 +1,5 @@
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
 
 /*
  Firebase web configuration is public by design. For production, optionally inject
@@ -21,10 +21,13 @@ for(const key of ["apiKey","authDomain","projectId","appId"]){
 
 const app=getApps().length?getApps()[0]:initializeApp(firebaseConfig);
 const auth=getAuth(app);
+// Persist the Firebase session across refreshes and browser restarts until the user explicitly logs out.
+await setPersistence(auth,browserLocalPersistence);
 const provider=new GoogleAuthProvider();
 provider.setCustomParameters({prompt:"select_account"});
 let sessionPromise=null;
 let authRestoreStarted=false;
+let dashboardStartPromise=null;
 
 function authMessage(text){const el=document.querySelector("#authMessage");if(el)el.textContent=text||"";}
 function setBusy(id,busy,label){const el=document.querySelector(id);if(!el)return;el.disabled=busy;if(label)el.dataset.label=el.dataset.label||el.textContent,el.textContent=busy?label:el.dataset.label;}
@@ -41,9 +44,14 @@ async function establish(user){
   try{return await sessionPromise;}finally{sessionPromise=null;}
 }
 async function completeSignIn(user){
-  await establish(user);
-  await enterWorkspace(user);
-  return user;
+  if(!user) return null;
+  if(dashboardStartPromise) return dashboardStartPromise;
+  dashboardStartPromise=(async()=>{
+    await establish(user);
+    await enterWorkspace(user);
+    return user;
+  })();
+  try{return await dashboardStartPromise;}finally{dashboardStartPromise=null;}
 }
 async function enterWorkspace(user){
   window.__APPFORGE_AUTH_INTENT=true;
@@ -59,7 +67,7 @@ async function enterWorkspace(user){
 
 window.AppForgeFirebase={
   auth,
-  async logout(){ authRestoreStarted=true; await fetch("/auth/logout",{method:"POST",credentials:"same-origin"}).catch(()=>{}); await signOut(auth); window.__APPFORGE_AUTH_INTENT=false; authRestoreStarted=false; document.querySelector("#appShell")?.classList.add("hidden"); const screen=document.querySelector("#authScreen"); screen?.classList.remove("hidden"); screen?.removeAttribute("aria-hidden"); },
+  async logout(){ authRestoreStarted=true; dashboardStartPromise=null; sessionPromise=null; await fetch("/auth/logout",{method:"POST",credentials:"same-origin"}).catch(()=>{}); await signOut(auth); window.__APPFORGE_AUTH_INTENT=false; authRestoreStarted=false; document.querySelector("#appShell")?.classList.add("hidden"); const screen=document.querySelector("#authScreen"); screen?.classList.remove("hidden"); screen?.removeAttribute("aria-hidden"); },
   async login(email,password){window.__APPFORGE_AUTH_INTENT=true;const result=await signInWithEmailAndPassword(auth,email,password);await completeSignIn(result.user);return result.user;},
   async register({email,password,firstName,lastName}){window.__APPFORGE_AUTH_INTENT=true;const result=await createUserWithEmailAndPassword(auth,email,password);await updateProfile(result.user,{displayName:(firstName+" "+lastName).trim()});await completeSignIn(result.user);return result.user;},
   async google(){
@@ -85,7 +93,9 @@ window.AppForgeFirebaseReady=new Promise(resolve=>{
     if(first){first=false;resolve(user);}
     // Firebase keeps the user's session across refreshes. Restore the workspace
     // automatically for that same authenticated user. Only an explicit Log out ends it.
-    if(!user || authRestoreStarted) return;
+    if(!user) return;
+    // Restore the same authenticated account after refresh without showing the login screen.
+    if(authRestoreStarted) return;
     authRestoreStarted=true;
     window.__APPFORGE_AUTH_INTENT=true;
     try{
