@@ -58,7 +58,7 @@ async function enterWorkspace(user){
 
 window.AppForgeFirebase={
   auth,
-  async logout(){ await signOut(auth); window.__APPFORGE_AUTH_INTENT=false; document.querySelector("#appShell")?.classList.add("hidden"); const screen=document.querySelector("#authScreen"); screen?.classList.remove("hidden"); screen?.removeAttribute("aria-hidden"); },
+  async logout(){ await fetch("/auth/logout",{method:"GET",credentials:"same-origin"}).catch(()=>{}); await signOut(auth); window.__APPFORGE_AUTH_INTENT=false; document.querySelector("#appShell")?.classList.add("hidden"); const screen=document.querySelector("#authScreen"); screen?.classList.remove("hidden"); screen?.removeAttribute("aria-hidden"); },
   async login(email,password){window.__APPFORGE_AUTH_INTENT=true;const result=await signInWithEmailAndPassword(auth,email,password);await completeSignIn(result.user);return result.user;},
   async register({email,password,firstName,lastName}){window.__APPFORGE_AUTH_INTENT=true;const result=await createUserWithEmailAndPassword(auth,email,password);await updateProfile(result.user,{displayName:(firstName+" "+lastName).trim()});await completeSignIn(result.user);return result.user;},
   async google(){
