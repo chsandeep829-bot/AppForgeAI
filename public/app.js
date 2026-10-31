@@ -69,8 +69,8 @@ async function build(prompt,edit=false){
     const d=await r.json();if(!r.ok)throw new Error(d.error||"Build failed");
     if(!d.result||!Array.isArray(d.result.files))throw new Error("The AI returned an incomplete project. Please try again.");
     render(d.result);persistCurrent();
-    $("#status").textContent="Build complete";if(bd)bd.textContent=(project.files||[]).length+" files generated · ready to preview";const pn=$("#projectName");if(pn)pn.textContent=d.result.projectName||"Untitled project";message("Build complete. Open Preview or ask for another edit.");
-  }catch(e){$("#status").textContent="Build failed";message("Error: "+e.message)}finally{$("#generate").disabled=false}
+    $("#status").textContent="Build complete";if(d.provider)message("Generated using "+d.provider+(d.failover?.length?" after switching from another provider.":"."));if(bd)bd.textContent=(project.files||[]).length+" files generated · ready to preview";const pn=$("#projectName");if(pn)pn.textContent=d.result.projectName||"Untitled project";message("Build complete. Open Preview or ask for another edit.");
+  }catch(e){$("#status").textContent="Build failed";message("Generation failed: "+e.message+" You can retry or choose another configured provider.")}finally{$("#generate").disabled=false}
 }
 
 $("#newProject").onclick=showNewProject;$("#newProjectSide").onclick=showNewProject;$("#emptyNewProject").onclick=showNewProject;$("#backProjects").onclick=showProjectHome;$("#closeProject").onclick=showProjectHome;
