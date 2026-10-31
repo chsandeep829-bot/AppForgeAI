@@ -12,12 +12,19 @@ function message(text,who="ai"){
 }
 
 async function init(){
-  // AppForgeAI now opens directly without a login screen.
-  user={name:"AppForgeAI User",email:""};
+  // Restore a real Firebase account silently when the user has already signed in.
+  try {
+    if (window.AppForgeFirebaseReady) {
+      const firebaseUser = await window.AppForgeFirebaseReady;
+      if (firebaseUser) await window.AppForgeFirebase.restoreRedirect().catch(()=>{});
+      const me = await fetch("/auth/me",{credentials:"same-origin"}).then(r=>r.json()).catch(()=>({}));
+      user = me.user || (firebaseUser ? {name:firebaseUser.displayName||"AppForgeAI User",email:firebaseUser.email||""} : {name:"AppForgeAI User",email:""});
+    } else user={name:"AppForgeAI User",email:""};
+  } catch { user={name:"AppForgeAI User",email:""}; }
   const shell=$("#appShell");
   if(shell)shell.classList.remove("hidden");
   const box=$("#userBox");
-  if(box){box.textContent="";const name=document.createElement("span");name.textContent="Workspace";box.append(name);}
+  if(box){box.textContent="";const name=document.createElement("span");name.textContent=user.email||"Workspace";box.append(name);}
   const admin=$("#adminPanel");
   if(admin)admin.classList.add("hidden");
   loadApks();
@@ -73,7 +80,7 @@ $("#refreshPreview").onclick=()=>render(project);
 $("#sendChat").onclick=async()=>{const v=$("#chatInput").value.trim();if(!v)return;message(v,"user");$("#chatInput").value="";await build(v,true);persistCurrent()};
 document.querySelectorAll(".projectTab").forEach(b=>b.onclick=()=>{document.querySelectorAll(".projectTab,.projectPanel").forEach(x=>x.classList.remove("active"));b.classList.add("active");$("#"+b.dataset.projectTab).classList.add("active")});
 
-$("#saveKeys").onclick=async()=>{const provider=$("#provider").value;const text=$(provider==="groq"?"#groqKeys":"#geminiKeys").value;const keys=keysFrom(text);if(!keys.length){$("#apiMessage").textContent="Add at least one key for the selected provider.";return}$("#apiMessage").textContent="Saving securely…";try{const r=await fetch("/api/keys/save",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({provider,keys})});const d=await r.json();if(!r.ok)throw new Error(d.error||"Save failed");sessionStorage.setItem("af_"+provider,text);$("#apiMessage").textContent=provider+" keys saved securely to your account ("+d.keyCount+" key(s))."}catch(e){$("#apiMessage").textContent="Save failed: "+e.message}};
+$("#saveKeys").onclick=async()=>{const provider=$("#provider").value; if(!user?.email){$("#apiMessage").textContent="Please sign in with your Firebase account before saving API keys.";return} const text=$(provider==="groq"?"#groqKeys":"#geminiKeys").value;const keys=keysFrom(text);if(!keys.length){$("#apiMessage").textContent="Add at least one key for the selected provider.";return}$("#apiMessage").textContent="Saving securely…";try{const r=await fetch("/api/keys/save",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({provider,keys})});const d=await r.json();if(!r.ok)throw new Error(d.error||"Save failed");sessionStorage.setItem("af_"+provider,text);$("#apiMessage").textContent=provider+" keys saved securely to your account ("+d.keyCount+" key(s))."}catch(e){$("#apiMessage").textContent="Save failed: "+e.message}};
 
 async function testProvider(provider){
   const keys=keysFrom($(provider==="groq"?"#groqKeys":"#geminiKeys").value);
@@ -102,5 +109,5 @@ $("#domainProject").onclick=()=>{document.querySelector('[data-tab="settingsTab"
 $("#githubProject").onclick=()=>alert("GitHub project publishing connection is the next deployment step for this workspace.");
 
 
-// Start the public workspace immediately.
+// Start after Firebase restores any previous signed-in account.
 init();
