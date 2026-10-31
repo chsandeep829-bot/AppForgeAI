@@ -56,15 +56,17 @@ async function init(){
       const firebaseUser = await window.AppForgeFirebaseReady;
       if (firebaseUser) await window.AppForgeFirebase.restoreRedirect().catch(()=>{});
       const me = await fetch("/auth/me",{credentials:"same-origin"}).then(r=>r.json()).catch(()=>({}));
-      user = me.user || (firebaseUser ? {name:firebaseUser.displayName||"AppForgeAI User",email:firebaseUser.email||""} : {name:"AppForgeAI User",email:""});
+      user = me.user || (firebaseUser ? {name:firebaseUser.displayName||"AppForgeAI User",email:firebaseUser.email||"",photoUrl:firebaseUser.photoURL||""} : {name:"AppForgeAI User",email:""}); if(firebaseUser?.photoURL&&!user.photoUrl)user.photoUrl=firebaseUser.photoURL;
     } else user={name:"AppForgeAI User",email:""};
   } catch { user={name:"AppForgeAI User",email:""}; }
   if(!user?.email){document.querySelector("#appShell")?.classList.add("hidden");return;}
   document.querySelector("#authScreen")?.classList.add("hidden");
   const shell=$("#appShell");
   if(shell)shell.classList.remove("hidden");
-  const box=$("#userBox");
-  if(box){box.textContent="";const name=document.createElement("span");name.textContent=user.email||"Workspace";box.append(name);}
+  const box=$("#userBox"), avatar=$("#userAvatar"), emailEl=$("#userEmail");
+  if(emailEl) emailEl.textContent=user.email||"Workspace";
+  if(avatar){const photo=user.photoUrl||"";avatar.src=photo||"/file_00000000bfc0821182fbc9c3e41a408b.png";avatar.alt=user.email?user.email+" profile picture":"AppForgeAI account";}
+  if(box) box.title=user.email||"AppForgeAI account";
   const isAdmin=(user?.email||"").toLowerCase()==="chsandeep829@gmail.com";
   const admin=$("#adminPanel"), adminNav=$("#adminNav");
   if(admin)admin.classList.toggle("hidden",!isAdmin);
@@ -203,35 +205,24 @@ document.querySelectorAll(".previewMode").forEach(b=>b.onclick=()=>{const frame=
 // Start after Firebase restores any previous signed-in account.
 init();
 
-/* Mobile drawer controller: sidebar is fixed and never occupies main content width. */
-(function(){
- const toggle=$("#mobileMenuToggle"), drawer=document.querySelector(".sidebar"), backdrop=$("#drawerBackdrop");
- if(!toggle||!drawer||!backdrop)return;
- const close=()=>{drawer.classList.remove("drawerOpen");backdrop.classList.remove("open");toggle.setAttribute("aria-expanded","false");};
- const open=()=>{drawer.classList.add("drawerOpen");backdrop.classList.add("open");toggle.setAttribute("aria-expanded","true");};
- toggle.onclick=()=>drawer.classList.contains("drawerOpen")?close():open();
- backdrop.onclick=close;
- drawer.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{if(window.innerWidth<=800)close()}));
- window.addEventListener("resize",()=>{if(window.innerWidth>800)close()});
-})();
-// Keep the navigation completely off-canvas on small screens.
+/* Single dashboard drawer controller. */
 function setMobileMenu(open){
- const sidebar=document.querySelector("#sidebar");
- const backdrop=document.querySelector("#sidebarBackdrop");
- const toggle=document.querySelector("#menuToggle");
- if(!sidebar)return;
- sidebar.classList.toggle("open",open);
- backdrop?.classList.toggle("open",open);
- toggle?.setAttribute("aria-expanded",String(open));
+  const sidebar=document.querySelector("#sidebar");
+  const backdrop=document.querySelector("#sidebarBackdrop");
+  const toggle=document.querySelector("#menuToggle");
+  if(!sidebar)return;
+  sidebar.classList.toggle("open",open);
+  backdrop?.classList.toggle("open",open);
+  toggle?.setAttribute("aria-expanded",String(open));
 }
-document.addEventListener("DOMContentLoaded",()=>{
- const toggle=document.querySelector("#menuToggle");
- const backdrop=document.querySelector("#sidebarBackdrop");
- toggle?.addEventListener("click",()=>setMobileMenu(!document.querySelector("#sidebar")?.classList.contains("open")));
- backdrop?.addEventListener("click",()=>setMobileMenu(false));
- document.querySelectorAll("#sidebar a,#sidebar button").forEach(el=>el.addEventListener("click",()=>{if(window.innerWidth<=800)setMobileMenu(false)}));
- window.addEventListener("resize",()=>{if(window.innerWidth>800)setMobileMenu(false)});
+const dashboardMenuToggle=document.querySelector("#menuToggle");
+dashboardMenuToggle?.addEventListener("click",()=>{
+  const sidebar=document.querySelector("#sidebar");
+  setMobileMenu(!sidebar?.classList.contains("open"));
 });
+document.querySelector("#sidebarBackdrop")?.addEventListener("click",()=>setMobileMenu(false));
+document.querySelectorAll("#sidebar button").forEach(button=>button.addEventListener("click",()=>{if(window.innerWidth<=800)setMobileMenu(false);}));
+window.addEventListener("resize",()=>{if(window.innerWidth>800)setMobileMenu(false);});
 
 const adminNav=$("#adminNav");if(adminNav){adminNav.onclick=()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));$("#adminTab").classList.add("active");loadAdminOverview().catch(e=>$("#adminStats").textContent=e.message);};}
 const adminOpenSettings=$("#adminOpenSettings");if(adminOpenSettings)adminOpenSettings.onclick=()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));$("#settingsTab").classList.add("active");};
