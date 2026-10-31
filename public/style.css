@@ -101,3 +101,7 @@ html,body{width:100%;min-width:0;min-height:100%;overflow-x:hidden}
 
 /* Account popover */
 .accountMenu{position:relative}.accountPopover{position:absolute;right:0;top:calc(100% + 10px);width:min(290px,calc(100vw - 24px));padding:16px;background:#111a2c;border:1px solid rgba(255,255,255,.12);border-radius:16px;box-shadow:0 20px 50px rgba(0,0,0,.45);z-index:2000;text-align:center}.accountAvatar{width:58px;height:58px;border-radius:50%;object-fit:cover;background:#243b62;margin:0 auto 9px}.accountPopover strong,.accountPopover small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.accountPopover small{color:#9aa7c2;margin-top:4px}.accountDivider{height:1px;background:rgba(255,255,255,.1);margin:14px 0}.accountPopover button{width:100%;min-height:44px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:#17233a;color:#fff;font-weight:700;cursor:pointer}.accountPopover button:hover{background:#223453}
+
+/* Authentication state must always win over fixed/fullscreen auth layout rules. */
+#authScreen.hidden,[id="authScreen"].hidden{display:none!important;visibility:hidden!important;pointer-events:none!important}
+#appShell.hidden,[id="appShell"].hidden{display:none!important}
