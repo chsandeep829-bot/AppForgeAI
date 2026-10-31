@@ -249,3 +249,6 @@ function openMobileMenu(){
 document.querySelector("#menuToggle")?.addEventListener("click",()=>document.querySelector("#sidebar")?.classList.contains("open")?closeMobileMenu():openMobileMenu());
 document.querySelector("#sidebarBackdrop")?.addEventListener("click",closeMobileMenu);
 document.querySelectorAll("#sidebar button").forEach(b=>b.addEventListener("click",()=>{if(innerWidth<=800)closeMobileMenu();}));
+
+// React immediately when Firebase changes authentication state.
+window.addEventListener("appforge-authenticated",()=>{init().catch(()=>{});});
