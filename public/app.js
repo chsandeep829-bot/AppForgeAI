@@ -154,11 +154,13 @@ $("#saveKeys").onclick=async()=>{
 };
 
 async function testProvider(provider){
-  const keys=keysFrom($(provider==="groq"?"#groqKeys":"#geminiKeys").value);
+  const input=provider==="groq"?"#groqKeys":"#geminiKeys";
+  const keys=keysFrom($(input).value);
   $("#apiMessage").textContent="Testing "+provider+"…";
   try{
     const r=await fetch("/api/test-provider",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({provider,keys})});
-    const d=await r.json();if(!r.ok)throw new Error(d.error);$("#apiMessage").textContent=provider+" connected successfully with "+d.keyCount+" key(s).";
+    const d=await r.json();if(!r.ok)throw new Error(d.error||"Connection test failed");
+    $("#apiMessage").textContent=provider+" connection test succeeded. "+(keys.length?"The entered key was tested.":"Your securely saved key was tested.");
   }catch(e){$("#apiMessage").textContent="Test failed: "+e.message}
 }
 $("#testGroq").onclick=()=>testProvider("groq");
