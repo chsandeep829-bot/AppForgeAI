@@ -63,8 +63,11 @@ async function init(){
   if(shell)shell.classList.remove("hidden");
   const box=$("#userBox");
   if(box){box.textContent="";const name=document.createElement("span");name.textContent=user.email||"Workspace";box.append(name);}
-  const admin=$("#adminPanel");
-  if(admin)admin.classList.add("hidden");
+  const isAdmin=(user?.email||"").toLowerCase()==="chsandeep829@gmail.com";
+  const admin=$("#adminPanel"), adminNav=$("#adminNav");
+  if(admin)admin.classList.toggle("hidden",!isAdmin);
+  if(adminNav)adminNav.classList.toggle("hidden",!isAdmin);
+  if(isAdmin) loadAdminOverview().catch(()=>{});
   loadApks();
   loadProjects();
   loadProviderStatus();
