@@ -52,12 +52,12 @@ async function enterWorkspace(user){
 window.AppForgeFirebase={
   auth,
   async logout(){ await signOut(auth); window.__APPFORGE_AUTH_INTENT=false; document.querySelector("#appShell")?.classList.add("hidden"); const screen=document.querySelector("#authScreen"); screen?.classList.remove("hidden"); screen?.removeAttribute("aria-hidden"); },
-  async login(email,password){window.__APPFORGE_AUTH_INTENT=true;const result=await signInWithEmailAndPassword(auth,email,password);await establish(result.user);return result.user;},
-  async register({email,password,firstName,lastName}){window.__APPFORGE_AUTH_INTENT=true;const result=await createUserWithEmailAndPassword(auth,email,password);await updateProfile(result.user,{displayName:(firstName+" "+lastName).trim()});await establish(result.user);return result.user;},
+  async login(email,password){window.__APPFORGE_AUTH_INTENT=true;const result=await signInWithEmailAndPassword(auth,email,password);await establish(result.user);await enterWorkspace(result.user);return result.user;},
+  async register({email,password,firstName,lastName}){window.__APPFORGE_AUTH_INTENT=true;const result=await createUserWithEmailAndPassword(auth,email,password);await updateProfile(result.user,{displayName:(firstName+" "+lastName).trim()});await establish(result.user);await enterWorkspace(result.user);return result.user;},
   async google(){
     window.__APPFORGE_AUTH_INTENT=true;
     auth.useDeviceLanguage();
-    try{const result=await signInWithPopup(auth,provider);await establish(result.user);return result.user;}
+    try{const result=await signInWithPopup(auth,provider);await establish(result.user);await enterWorkspace(result.user);return result.user;}
     catch(error){
       const code=error?.code||"";
       if(["auth/popup-blocked","auth/popup-closed-by-user","auth/cancelled-popup-request"].includes(code)){
@@ -67,7 +67,7 @@ window.AppForgeFirebase={
       throw error;
     }
   },
-  async restoreRedirect(){const result=await getRedirectResult(auth);if(result?.user){window.__APPFORGE_AUTH_INTENT=true;await establish(result.user);return result.user;}return null;}
+  async restoreRedirect(){const result=await getRedirectResult(auth);if(result?.user){window.__APPFORGE_AUTH_INTENT=true;await establish(result.user);await enterWorkspace(result.user);return result.user;}return null;}
 };
 
 // This observer is the single source of truth for authentication state.
